@@ -1,12 +1,19 @@
-//--------------------------------------------------------------------------------------------------
-// parinfer-jvm
-// TODO: about, license, name, etc
-//--------------------------------------------------------------------------------------------------
+// parinfer-jvm - a Parinfer implementation for the JVM
+// v0.1.0
+// https://github.com/oakmac/parinfer-jvm
+//
+// More information about Parinfer can be found here:
+// http://shaunlebron.github.io/parinfer/
+//
+// Copyright (c) 2016, Chris Oakman and other contributors
+// Released under the ISC license
+// https://github.com/oakmac/parinfer-jvm/blob/master/LICENSE.md
 
 package org.parinfer
 
 import java.lang.Math
 import java.util.ArrayList
+import java.util.HashMap
 import java.util.Stack
 
 //--------------------------------------------------------------------------------------------------
@@ -51,22 +58,37 @@ class ParinferOptions(val cursorX: Int = -1,
                       val cursorLine: Int = -1,
                       val cursorDx: Int = -1)
 
-class ParinferException() : Throwable() {
-    // NOTE: "parinferError" is unnecessary here because of the type system
-    public val parinferError: Boolean = true
+class ParinferException(result: Result, errorName: String, errorMessage: String, lineNo: Int?, x: Int?) : Throwable() {
+    public val name: String = errorName
+    public val description: String = errorMessage
+    public var lineNo: Int = -1
+    public var x: Int = -1
+
+    init {
+        if (lineNo == null) {
+            this.lineNo = result.errorPosCache[errorName]!!.lineNo
+        }
+        else {
+            this.lineNo = lineNo
+        }
+
+        if (x == null) {
+            this.x = result.errorPosCache[errorName]!!.x
+        }
+        else {
+            this.x = x
+        }
+    }
 }
 
-class ParinferError(val name: String?,
-                    val message: String?,
-                    val lineNo: Int?,
-                    val x: Int?)
+class ErrorPos(val lineNo: Int, val x: Int)
 
 class StackItm(val lineNo: Int,
                val x: Int,
                val ch: String,
                val indentDelta: Int)
 
-class Result(text: String, mode: String, options: ParinferOptions) {
+class Result(text: String, mode: String, options: ParinferOptions?) {
     public val mode: String = mode
 
     public val origText: String = text
@@ -84,9 +106,9 @@ class Result(text: String, mode: String, options: ParinferOptions) {
     public var parenTrailEndX: Int = -1
     public var parenTrailOpeners: Stack<StackItm> = Stack<StackItm>()
 
-    public var cursorX: Int = options.cursorX
-    public var cursorLine: Int = options.cursorLine
-    public var cursorDx: Int = options.cursorDx
+    public var cursorX: Int = -1
+    public var cursorLine: Int = -1
+    public var cursorDx: Int = -1
 
     public var isInCode: Boolean = true
     public var isEscaping: Boolean = false
@@ -102,28 +124,38 @@ class Result(text: String, mode: String, options: ParinferOptions) {
     public var maxIndent: Int = -1
     public var indentDelta: Int = 0
 
-    public var errorName: String? = null
-    public var errorMessage: String? = null
-    public var errorLineNo: Int? = null
-    public var errorX: Int? = null
+    public var error: ParinferException? = null
 
-    //public var errorPosCache
+    public var errorPosCache: HashMap<String, ErrorPos> = HashMap<String, ErrorPos>()
+
+    init {
+        if (options != null) {
+            this.cursorX = options.cursorX
+            this.cursorLine = options.cursorLine
+            this.cursorDx = options.cursorDx
+        }
+    }
 }
 
 class LineDelta(val lineNo: Int, val line: String)
 
 class ParinferResult(result: Result) {
-    public val text = result.origText
-    public val success = result.success
-    public var error: ParinferError? = null
+    public var text: String = ""
+    public var success: Boolean = true
+    public var error: ParinferException? = null
     public var changedLines: ArrayList<LineDelta>? = null
 
     init {
-        if (result.errorName != null) {
-            this.error = ParinferError(result.errorName, result.errorMessage, result.errorLineNo, result.errorX)
+        if (result.success) {
+            val lineEnding = getLineEnding(result.origText)
+            this.text = poorMansJoin(result.lines, lineEnding)
+            this.success = true
+            this.changedLines = getChangedLines(result)
         }
         else {
-            this.changedLines = getChangedLines(result)
+            this.text = result.origText
+            this.success = false
+            this.error = result.error
         }
     }
 }
@@ -138,13 +170,15 @@ val ERROR_UNCLOSED_QUOTE = "unclosed-quote"
 val ERROR_UNCLOSED_PAREN = "unclosed-paren"
 val ERROR_UNHANDLED = "unhandled"
 
-val errorMessages = hashMapOf(
-    ERROR_QUOTE_DANGER to "Quotes must balanced inside comment blocks.",
-    ERROR_EOL_BACKSLASH to "Line cannot end in a hanging backslash.",
-    ERROR_UNCLOSED_QUOTE to "String is missing a closing quote.",
-    ERROR_UNCLOSED_PAREN to "Unmatched open-paren.")
+val QUOTE_DANGER_MSG = "Quotes must balanced inside comment blocks."
+val EOL_BACKSLASH_MSG = "Line cannot end in a hanging backslash."
+val UNCLOSED_QUOTE_MSG = "String is missing a closing quote."
+val UNCLOSED_PAREN_MSG = "Unmatched open-paren."
+val UNHANDLED_MSG = "Unhandled error."
 
-// TODO: finish the error functions
+fun cacheErrorPos(result: Result, errorName: String, lineNo: Int, x: Int) {
+    result.errorPosCache[errorName] = ErrorPos(lineNo, x)
+}
 
 //--------------------------------------------------------------------------------------------------
 // String Operations
@@ -164,9 +198,24 @@ fun removeWithinString(orig: String, start: Int, end: Int) : String {
 
 // NOTE: repeatString function not needed
 
+// NOTE: We assume that if the CR char "\r" is used anywhere,
+//       then we should use CRLF line-endings after every line.
 fun getLineEnding(text: String) : String {
-    // TODO: write me
+    val i = text.indexOf("\r")
+    if (i > 0) {
+        return "\r\n"
+    }
     return "\n"
+}
+
+fun poorMansJoin(arr: ArrayList<String>, lf: String) : String {
+    var theStr = ""
+    var i = 0
+    while (i < arr.size) {
+        theStr = arr[i] + lf
+        i++
+    }
+    return theStr
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -306,14 +355,12 @@ fun onQuote(result: Result) {
     else if (result.isInComment) {
         result.quoteDanger = ! result.quoteDanger
         if (result.quoteDanger) {
-            // TODO:
-            //cacheErrorPos()
+            cacheErrorPos(result, ERROR_QUOTE_DANGER, result.lineNo, result.x)
         }
     }
     else {
         result.isInStr = true
-        // TODO:
-        //cacheErrorPos()
+        cacheErrorPos(result, ERROR_UNCLOSED_QUOTE, result.lineNo, result.x)
     }
 }
 
@@ -326,7 +373,7 @@ fun afterBackslash(result: Result) {
 
     if (result.ch == NEWLINE) {
         if (result.isInCode) {
-            // TODO: figure out throw
+            throw ParinferException(result, ERROR_EOL_BACKSLASH, EOL_BACKSLASH_MSG, result.lineNo, result.x - 1)
         }
         onNewline(result)
     }
@@ -545,7 +592,7 @@ fun onProperIndent(result: Result) {
     result.trackingIndent = false
 
     if (result.quoteDanger) {
-        // TODO: throw
+        throw ParinferException(result, ERROR_QUOTE_DANGER, QUOTE_DANGER_MSG, null, null)
     }
 
     if (result.mode == INDENT_MODE) {
@@ -640,16 +687,16 @@ fun processLine(result: Result, line: String) {
 
 fun finalizeResult(result: Result) {
     if (result.quoteDanger) {
-        // TODO: throw
+        throw ParinferException(result, ERROR_QUOTE_DANGER, QUOTE_DANGER_MSG, null, null)
     }
     if (result.isInStr) {
-        // TODO: throw
+        throw ParinferException(result, ERROR_UNCLOSED_QUOTE, UNCLOSED_QUOTE_MSG, null, null)
     }
 
     if (! result.parenStack.empty()) {
         if (result.mode == PAREN_MODE) {
             val opener = result.parenStack.peek()
-            // TODO: throw
+            throw ParinferException(result, ERROR_UNCLOSED_PAREN, UNCLOSED_PAREN_MSG, opener.lineNo, opener.x)
         }
         else if (result.mode == INDENT_MODE) {
             correctParenTrail(result, 0)
@@ -659,22 +706,9 @@ fun finalizeResult(result: Result) {
     result.success = true
 }
 
-// TODO: figure out this function
-fun processError(result: Result, err: ParinferException) {
-    result.success = false
-    /*
-    if (err.parinferError) {
-        // TODO: figure out "delete"
-        // TODO: result.error = err
-    }
-    else {
-        // result.error.name = ERROR_UNHANDLED
-        // result.error.message = err.stack
-    }
-    */
-}
+// NOTE: processError function not needed due to type system
 
-fun processText(text: String, options: ParinferOptions, mode: String) : Result {
+fun processText(text: String, options: ParinferOptions?, mode: String) : Result {
     var result = Result(text, mode, options)
 
     try {
@@ -686,7 +720,8 @@ fun processText(text: String, options: ParinferOptions, mode: String) : Result {
         finalizeResult(result)
     }
     catch (err: ParinferException) {
-        processError(result, err)
+        result.success = false
+        result.error = err
     }
 
     return result
@@ -696,12 +731,14 @@ fun processText(text: String, options: ParinferOptions, mode: String) : Result {
 // Public API
 //--------------------------------------------------------------------------------------------------
 
-fun indentMode(text: String, options: ParinferOptions) : ParinferResult {
+// NOTE: publicResult function not needed
+
+fun indentMode(text: String, options: ParinferOptions?) : ParinferResult {
     val result = processText(text, options, INDENT_MODE)
     return ParinferResult(result)
 }
 
-fun parenMode(text: String, options: ParinferOptions) : ParinferResult {
+fun parenMode(text: String, options: ParinferOptions?) : ParinferResult {
     val result = processText(text, options, PAREN_MODE)
     return ParinferResult(result)
 }
