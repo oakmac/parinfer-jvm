@@ -581,7 +581,10 @@ fun correctIndent(result: MutableResult) {
     newIndent = clamp(newIndent, minIndent, maxIndent)
 
     if (newIndent != origIndent) {
-        val indentStr = BLANK_SPACE.repeat(newIndent)
+        var indentStr = BLANK_SPACE
+        if (newIndent > 0) {
+            indentStr = BLANK_SPACE.repeat(newIndent)
+        }
         replaceWithinLine(result, result.lineNo, 0, origIndent, indentStr)
         result.x = newIndent
         result.indentDelta += (newIndent - origIndent)
@@ -746,7 +749,7 @@ fun parenMode(text: String, options: ParinferOptions?): ParinferResult {
 //--------------------------------------------------------------------------------------------------
 
 fun main(args: Array<String>) {
-    val result = indentMode("(def foo [a b", null)
+    val result = parenMode("(def foo\n[a b\nc])", null)
     println( result.success )
     println( result.text )
 
