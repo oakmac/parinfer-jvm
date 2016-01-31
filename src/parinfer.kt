@@ -54,9 +54,23 @@ fun isCloseParen(c: String) : Boolean {
 // Class Definitions
 //--------------------------------------------------------------------------------------------------
 
-class ParinferOptions(val cursorX: Int = -1,
-                      val cursorLine: Int = -1,
-                      val cursorDx: Int = -1)
+class ParinferOptions(cursorX: Int?, cursorLine: Int?, cursorDx: Int?) {
+    public var cursorX: Int = -1
+    public var cursorLine: Int = -1
+    public var cursorDx: Int = -1
+
+    init {
+        if (cursorX != null) {
+            this.cursorX = cursorX
+        }
+        if (cursorLine != null) {
+            this.cursorLine = cursorLine
+        }
+        if (cursorDx != null) {
+            this.cursorDx = cursorDx
+        }
+    }
+}
 
 class ParinferException(result: MutableResult, errorName: String, errorMessage: String, lineNo: Int?, x: Int?) : Throwable() {
     public val name: String = errorName
@@ -92,7 +106,7 @@ class MutableResult(text: String, mode: String, options: ParinferOptions?) {
     public val mode: String = mode
 
     public val origText: String = text
-    public var origLines: List<String> = text.split("\\r?\\n")
+    public var origLines: List<String> = text.split("\\r?\\n".toRegex())
 
     public var lines: ArrayList<String> = arrayListOf()
     public var lineNo: Int = -1
@@ -183,14 +197,6 @@ fun cacheErrorPos(result: MutableResult, errorName: String, lineNo: Int, x: Int)
 // String Operations
 //--------------------------------------------------------------------------------------------------
 
-fun insertWithinString(orig: String, idx: Int, insert: String) : String {
-    return orig.substring(0, idx) + insert + orig.substring(idx)
-}
-
-fun removeWithinString(orig: String, start: Int, end: Int) : String {
-    return orig.substring(0, start) + orig.substring(end)
-}
-
 // NOTE: We assume that if the CR char "\r" is used anywhere,
 //       then we should use CRLF line-endings after every line.
 fun getLineEnding(text: String) : String {
@@ -205,7 +211,7 @@ fun poorMansJoin(arr: ArrayList<String>, lf: String) : String {
     var theStr = ""
     var i = 0
     while (i < arr.size) {
-        theStr = arr[i] + lf
+        theStr += arr[i] + lf
         i++
     }
 
@@ -217,9 +223,11 @@ fun poorMansJoin(arr: ArrayList<String>, lf: String) : String {
 // Line operations
 //--------------------------------------------------------------------------------------------------
 
-fun insertWithinLine(result: MutableResult, lineNo: Int, idx: Int, insert: String) {
+fun insertWithinLine(result: MutableResult, lineNo: Int, idx: Int, middle: String) {
     val line = result.lines[lineNo]
-    result.lines[lineNo] = insertWithinString(line, idx, insert)
+    val head = line.substring(0, idx)
+    val tail = line.substring(idx, line.length)
+    result.lines[lineNo] = head + middle + tail
 }
 
 fun replaceWithinLine(result: MutableResult, lineNo: Int, start: Int, end: Int, replace: String) {
@@ -236,7 +244,9 @@ fun replaceWithinLine(result: MutableResult, lineNo: Int, start: Int, end: Int, 
 
 fun removeWithinLine(result: MutableResult, lineNo: Int, start: Int, end: Int) {
     val line = result.lines[lineNo]
-    result.lines[lineNo] = removeWithinString(line, start, end)
+    if (start != end) {
+        result.lines[lineNo] = line.removeRange(start, end)
+    }
 }
 
 fun initLine(result: MutableResult, line: String) {
@@ -736,12 +746,14 @@ fun processText(text: String, options: ParinferOptions?, mode: String) : Mutable
 // Public API
 //--------------------------------------------------------------------------------------------------
 
-fun indentMode(text: String, options: ParinferOptions?): ParinferResult {
+fun indentMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): ParinferResult {
+    val options = ParinferOptions(cursorX, cursorLine, cursorDx)
     val result = processText(text, options, INDENT_MODE)
     return ParinferResult(result)
 }
 
-fun parenMode(text: String, options: ParinferOptions?): ParinferResult {
+fun parenMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): ParinferResult {
+    val options = ParinferOptions(cursorX, cursorLine, cursorDx)
     val result = processText(text, options, PAREN_MODE)
     return ParinferResult(result)
 }
@@ -750,12 +762,7 @@ fun parenMode(text: String, options: ParinferOptions?): ParinferResult {
 // DEBUG...
 //--------------------------------------------------------------------------------------------------
 
-/*
 fun main(args: Array<String>) {
-    val result = parenMode("(def foo\n[a b\nc])", null)
-    println( result.success )
+    val result = indentMode("(defn foo\n  [arg\n  ret", null, null, null)
     println( result.text )
-
-    //println( "".substring(5) )
 }
-*/
