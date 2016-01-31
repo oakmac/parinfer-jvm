@@ -308,7 +308,7 @@ fun afterBackslash(result: Result) {
 }
 
 fun onChar(result: Result) {
-    val ch = result.ch;
+    val ch = result.ch
     if (result.isEscaping)       { afterBackslash(result) }
     else if (isOpenParen(ch))    { onOpenParen(result) }
     else if (isCloseParen(ch))   { onCloseParen(result) }
@@ -318,7 +318,7 @@ fun onChar(result: Result) {
     else if (ch == TAB)          { onTab(result) }
     else if (ch == NEWLINE)      { onNewline(result) }
 
-    result.isInCode = !result.isInComment && !result.isInStr;
+    result.isInCode = !result.isInComment && !result.isInStr
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -432,7 +432,7 @@ fun correctParenTrail(result: Result, indentX: Int) {
             parens += PARENS[opener.ch]
         }
         else {
-            break;
+            break
         }
     }
 
