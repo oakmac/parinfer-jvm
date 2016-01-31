@@ -1,4 +1,4 @@
-# Parinfer on the JVM
+# [***WORK IN PROGRESS***] Parinfer on the JVM
 
 **Work in progress**
 
