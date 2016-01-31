@@ -141,10 +141,10 @@ class LineDelta(val lineNo: Int, val line: String)
 
 // NOTE: this is the "public result" class
 class ParinferResult(result: MutableResult) {
-    public var text: String = ""
-    public var success: Boolean = true
-    public var error: ParinferException? = null
-    public var changedLines: ArrayList<LineDelta>? = null
+    @JvmField public var text: String = ""
+    @JvmField public var success: Boolean = true
+    @JvmField public var error: ParinferException? = null
+    @JvmField public var changedLines: ArrayList<LineDelta>? = null
 
     init {
         if (result.success) {
@@ -208,7 +208,9 @@ fun poorMansJoin(arr: ArrayList<String>, lf: String) : String {
         theStr = arr[i] + lf
         i++
     }
-    return theStr
+
+    // remove the last newline character
+    return theStr.substring(0, theStr.length - 1)
 }
 
 //--------------------------------------------------------------------------------------------------

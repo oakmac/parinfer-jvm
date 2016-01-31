@@ -5,6 +5,7 @@
 lib/
 out/
 target/
+.lein-repl-history
 
 ## File-based project format
 *.ipr
