@@ -1,5 +1,5 @@
 // parinfer-jvm - a Parinfer implementation for the JVM
-// v0.1.0
+// v0.1.0-DEV
 // https://github.com/oakmac/parinfer-jvm
 //
 // More information about Parinfer can be found here:
@@ -9,7 +9,7 @@
 // Released under the ISC license
 // https://github.com/oakmac/parinfer-jvm/blob/master/LICENSE.md
 
-package org.parinfer
+package com.github.oakmac.parinfer
 
 import java.lang.Math
 import java.util.ArrayList
@@ -748,6 +748,7 @@ fun parenMode(text: String, options: ParinferOptions?): ParinferResult {
 // DEBUG...
 //--------------------------------------------------------------------------------------------------
 
+/*
 fun main(args: Array<String>) {
     val result = parenMode("(def foo\n[a b\nc])", null)
     println( result.success )
@@ -755,3 +756,4 @@ fun main(args: Array<String>) {
 
     //println( "".substring(5) )
 }
+*/

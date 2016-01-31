@@ -14,5 +14,5 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 
 # Kotlin files
-[*]
+[*.kt]
 indent_size = 4
