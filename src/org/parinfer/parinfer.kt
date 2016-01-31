@@ -7,6 +7,7 @@ package org.parinfer
 
 import java.lang.Math
 import java.util.ArrayList
+import java.util.Stack
 
 //--------------------------------------------------------------------------------------------------
 // Constants / Predicates
@@ -16,6 +17,7 @@ val INDENT_MODE = "INDENT_MODE"
 val PAREN_MODE = "PAREN_MODE"
 
 val BACKSLASH = "\\"
+val BACKSLASH_CHAR = '\\'
 val BLANK_SPACE = " "
 val DOUBLE_SPACE = "  "
 val DOUBLE_QUOTE = "\""
@@ -63,12 +65,12 @@ final class Result(text: String, mode: String) {
     public var ch: String = ""
     public var x: Int = 0
 
-    public var parenStack: ArrayList<StackItm> = arrayListOf<StackItm>()
+    public var parenStack: Stack<StackItm> = Stack<StackItm>()
 
     public var parenTrailLineNo: Int = -1
     public var parenTrailStartX: Int = -1
     public var parenTrailEndX: Int = -1
-    public var parenTrailOpeners: ArrayList<StackItm> = arrayListOf<StackItm>()
+    public var parenTrailOpeners: Stack<StackItm> = Stack<StackItm>()
 
     public var cursorX: Int = -1
     public var cursorLine: Int = -1
@@ -161,7 +163,7 @@ fun removeWithinLine(result: Result, lineNo: Int, start: Int, end: Int) {
 
 fun initLine(result: Result, line: String) {
     result.x = 0
-    result.lineNo = result.lineNo + 1
+    result.lineNo++
     result.lines.add(line)
 
     // reset line-specific state
@@ -194,7 +196,7 @@ fun clamp(valN: Int, minN: Int?, maxN: Int?) : Int {
 }
 
 fun peek(arr: ArrayList<StackItm>) : StackItm? {
-    val arrSize = arr.size()
+    val arrSize = arr.size
     if (arrSize == 0) {
         return null
     }
@@ -205,31 +207,30 @@ fun peek(arr: ArrayList<StackItm>) : StackItm? {
 // Character functions
 //--------------------------------------------------------------------------------------------------
 
-fun isValidCloseParen(parenStack: ArrayList<StackItm>, ch: String) : Boolean {
-    val parenStackSize = parenStack.size()
+fun isValidCloseParen(parenStack: Stack<StackItm>, ch: String) : Boolean {
+    val parenStackSize = parenStack.size
     if (parenStackSize == 0) {
         return false
     }
 
-    val lastStackItm = parenStack.get(parenStackSize - 1)
-    return lastStackItm.ch == PARENS.get(ch)
+    val lastStackItm = parenStack[parenStackSize - 1]
+    return lastStackItm.ch == PARENS[ch]
 }
 
 fun onOpenParen(result: Result) {
     if (result.isInCode) {
         val newStackItm = StackItm(result.lineNo, result.x, result.ch, result.indentDelta)
-        result.parenStack.add(newStackItm)
+        result.parenStack.push(newStackItm)
     }
 }
 
 fun onMatchedCloseParen(result: Result) {
-    val parenStackSize = result.parenStack.size()
-    if (parenStackSize > 0) {
-        val opener = result.parenStack.get(parenStackSize - 1)
+    if (result.parenStack.size > 0) {
+        val opener = result.parenStack.peek()
         result.parenTrailEndX = result.x + 1
-        result.parenTrailOpeners.add(opener)
+        result.parenTrailOpeners.push(opener)
         result.maxIndent = opener.x
-        result.parenStack.remove(parenStackSize - 1)
+        result.parenStack.pop()
     }
 }
 
@@ -348,7 +349,137 @@ fun handleCursorDelta(result: Result) {
 // Paren Trail functions
 //--------------------------------------------------------------------------------------------------
 
-// TODO: write me
+fun updateParenTrailBounds(result: Result) {
+    val line = result.lines[result.lineNo]
+    val ch = result.ch
+    val prevChIsBackslash = result.x > 0 &&
+                            line[result.x - 1] == BACKSLASH_CHAR
+
+    val shouldReset = result.isInCode &&
+                      ! isCloseParen(ch) &&
+                      ch != "" &&
+                      (ch != BLANK_SPACE || prevChIsBackslash) &&
+                      ch != DOUBLE_SPACE
+
+    if (shouldReset) {
+        result.parenTrailLineNo = result.lineNo
+        result.parenTrailStartX = result.x + 1
+        result.parenTrailEndX = result.x + 1
+        result.parenTrailOpeners.clear()
+        result.maxIndent = -1
+    }
+}
+
+fun clampParenTrailToCursor(result: Result) {
+    val startX = result.parenTrailStartX
+    val endX = result.parenTrailEndX
+
+    val isCursorClamping = isCursorOnRight(result, startX) &&
+                           ! isCursorInComment(result)
+
+    if (isCursorClamping) {
+        val newStartX = Math.max(startX, result.cursorX)
+        val newEndX = Math.max(endX, result.cursorX)
+
+        val line = result.lines[result.lineNo]
+        var removeCount = 0
+        var i = startX
+        while (i < newStartX) {
+            if (isCloseParen(line[i].toString())) {
+                removeCount++
+            }
+            i++
+        }
+
+        // TODO: convert this to a Java.util.Stack?
+        // TODO: figure out .splice
+        //result.parenTrailOpeners.removeRange(0, removeCount)
+        result.parenTrailStartX = newStartX
+        result.parenTrailEndX = newEndX
+    }
+}
+
+fun removeParenTrail(result: Result) {
+    val startX = result.parenTrailStartX
+    val endX = result.parenTrailEndX
+
+    if (startX == endX) {
+        return
+    }
+
+    val openers = result.parenTrailOpeners
+    while (openers.size != 0) {
+        result.parenStack.push(openers.pop())
+    }
+
+    removeWithinLine(result, result.lineNo, startX, endX)
+}
+
+fun correctParenTrail(result: Result, indentX: Int) {
+    var parens = ""
+
+    while (result.parenStack.size > 0) {
+        val opener = result.parenStack.peek()
+        if (opener.x >= indentX) {
+            result.parenStack.pop()
+            parens += PARENS[opener.ch]
+        }
+        else {
+            break;
+        }
+    }
+
+    insertWithinLine(result, result.parenTrailLineNo, result.parenTrailStartX, parens)
+}
+
+fun cleanParenTrail(result: Result) {
+    val startX = result.parenTrailStartX
+    val endX = result.parenTrailEndX
+
+    if (startX == endX || result.lineNo != result.parenTrailLineNo) {
+        return
+    }
+
+    val line = result.lines[result.lineNo]
+    var newTrail = ""
+    var spaceCount = 0
+    var i = startX
+    while (i < endX) {
+        if (isCloseParen(line[i].toString())) {
+            newTrail += line[i]
+        }
+        else {
+            spaceCount++
+        }
+        i++
+    }
+
+    if (spaceCount > 0) {
+        replaceWithinLine(result, result.lineNo, startX, endX, newTrail)
+        result.parenTrailEndX -= spaceCount
+    }
+}
+
+fun appendParenTrail(result: Result) {
+    val opener = result.parenStack.pop()
+    val closeCh = PARENS[opener.ch].toString()
+
+    result.maxIndent = opener.x
+    insertWithinLine(result, result.parenTrailLineNo, result.parenTrailEndX, closeCh)
+    result.parenTrailEndX++
+}
+
+fun finishNewParenTrail(result: Result) {
+    if (result.mode == INDENT_MODE) {
+        clampParenTrailToCursor(result)
+        removeParenTrail(result)
+    }
+    else if (result.mode == PAREN_MODE) {
+        if (result.lineNo != result.cursorLine) {
+            cleanParenTrail(result)
+        }
+    }
+}
 
 //--------------------------------------------------------------------------------------------------
 // Indentation functions
