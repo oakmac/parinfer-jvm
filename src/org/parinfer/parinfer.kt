@@ -47,6 +47,15 @@ fun isCloseParen(c: String) : Boolean {
 // Result Structure
 //--------------------------------------------------------------------------------------------------
 
+final class Options() {
+
+}
+
+final class ParinferError() {
+    // NOTE: "parinferError" is unnecessary here because of the type system
+    public val parinferError: Boolean = true
+}
+
 final class StackItm(lineNo: Int, x: Int, ch: String, indentDelta: Int) {
     public val lineNo: Int = lineNo
     public val x: Int = x
@@ -133,9 +142,7 @@ fun removeWithinString(orig: String, start: Int, end: Int) : String {
     return orig.substring(0, start) + orig.substring(end)
 }
 
-fun repeatString(text: String, n: Int) : String {
-    return text.repeat(n)
-}
+// NOTE: repeatString function not needed
 
 fun getLineEnding(text: String) : String {
     // TODO: write me
@@ -485,18 +492,184 @@ fun finishNewParenTrail(result: Result) {
 // Indentation functions
 //--------------------------------------------------------------------------------------------------
 
-// TODO: write me
+fun correctIndent(result: Result) {
+    val origIndent = result.x
+    var newIndent = origIndent
+    var minIndent = 0
+    val maxIndent = result.maxIndent
+
+    if (! result.parenStack.empty()) {
+        val opener = result.parenStack.peek()
+        minIndent = opener.x + 1
+        newIndent += opener.indentDelta
+    }
+
+    newIndent = clamp(newIndent, minIndent, maxIndent)
+
+    if (newIndent != origIndent) {
+        val indentStr = BLANK_SPACE.repeat(newIndent)
+        replaceWithinLine(result, result.lineNo, 0, origIndent, indentStr)
+        result.x = newIndent
+        result.indentDelta += (newIndent - origIndent)
+    }
+}
+
+fun onProperIndent(result: Result) {
+    result.trackingIndent = false
+
+    if (result.quoteDanger) {
+        // TODO: throw
+    }
+
+    if (result.mode == INDENT_MODE) {
+        correctParenTrail(result, result.x)
+    }
+    else if (result.mode == PAREN_MODE) {
+        correctIndent(result)
+    }
+}
+
+fun onLeadingCloseParen(result: Result) {
+    result.skipChar = true
+    result.trackingIndent = true
+
+    if (result.mode == PAREN_MODE) {
+        if (isValidCloseParen(result.parenStack, result.ch)) {
+            if (isCursorOnLeft(result)) {
+                result.skipChar = false
+                onProperIndent(result)
+            }
+            else {
+                appendParenTrail(result)
+            }
+        }
+    }
+}
+
+fun onIndent(result: Result) {
+    if (isCloseParen(result.ch)) {
+        onLeadingCloseParen(result)
+    }
+    else if (result.ch == SEMICOLON) {
+        // comments don't count as indentation points
+        result.trackingIndent = false
+    }
+    else if (result.ch != NEWLINE) {
+        onProperIndent(result)
+    }
+}
 
 //--------------------------------------------------------------------------------------------------
 // High-level processing functions
 //--------------------------------------------------------------------------------------------------
 
-// TODO: write me
+fun processChar(result: Result, ch: String) {
+    val origCh = ch
+
+    result.ch = ch
+    result.skipChar = false
+
+    if (result.mode == PAREN_MODE) {
+        handleCursorDelta(result)
+    }
+
+    if (result.trackingIndent && ch != BLANK_SPACE && ch != TAB) {
+        onIndent(result)
+    }
+
+    if (result.skipChar) {
+        result.ch = ""
+    }
+    else {
+        onChar(result)
+        updateParenTrailBounds(result)
+    }
+
+    commitChar(result, origCh)
+}
+
+fun processLine(result: Result, line: String) {
+    initLine(result, line)
+
+    if (result.mode == INDENT_MODE) {
+        result.trackingIndent = result.parenStack.size != 0 &&
+                                ! result.isInStr
+    }
+    else if (result.mode == PAREN_MODE) {
+        result.trackingIndent = ! result.isInStr
+    }
+
+    var i = 0
+    val chars = line + NEWLINE
+    while (i < chars.length) {
+        processChar(result, chars[i].toString())
+        i++
+    }
+
+    if (result.lineNo == result.parenTrailLineNo) {
+        finishNewParenTrail(result)
+    }
+}
+
+fun finalizeResult(result: Result) {
+    if (result.quoteDanger) {
+        // TODO: throw
+    }
+    if (result.isInStr) {
+        // TODO: throw
+    }
+
+    if (! result.parenStack.empty()) {
+        if (result.mode == PAREN_MODE) {
+            val opener = result.parenStack.peek()
+            // TODO: throw
+        }
+        else if (result.mode == INDENT_MODE) {
+            correctParenTrail(result, 0)
+        }
+    }
+
+    result.success = true
+}
+
+// TODO: figure out this function
+fun processError(result: Result, err: ParinferError) {
+    result.success = false
+    if (err.parinferError) {
+        // TODO: figure out "delete"
+        // TODO: result.error = err
+    }
+    else {
+        // result.error.name = ERROR_UNHANDLED
+        // result.error.message = err.stack
+    }
+}
+
+// TODO: figure out try
+fun processText(text: String, options: Options, mode: String) : Result {
+    /*
+    var result = Result()
+
+    try {
+        var i = 0
+        while (i < result.origLines.size) {
+            processLine(result, result.origLines[i])
+            i++
+        }
+        finalizeResult(result)
+    }
+    catch (err) {
+        processError(result, err)
+    }
+
+    return result
+    */
+}
 
 //--------------------------------------------------------------------------------------------------
 // Public API
 //--------------------------------------------------------------------------------------------------
 
 fun main(args: Array<String>) {
-    println( repeatString("YaY", 4) )
+    println("success!")
 }
