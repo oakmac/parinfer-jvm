@@ -65,27 +65,27 @@ final class Result(text: String, mode: String) {
 
     public var parenStack: ArrayList<StackItm> = arrayListOf<StackItm>()
 
-    public var parenTrailLineNo: Int? = null
-    public var parenTrailStartX: Int? = null
-    public var parenTrailendX: Int? = null
+    public var parenTrailLineNo: Int = -1
+    public var parenTrailStartX: Int = -1
+    public var parenTrailEndX: Int = -1
     public var parenTrailOpeners: ArrayList<StackItm> = arrayListOf<StackItm>()
 
-    public var cursorX: Int? = null
-    public var cursorLine: Int? = null
-    public var cursorDx: Int? = null
+    public var cursorX: Int = -1
+    public var cursorLine: Int = -1
+    public var cursorDx: Int = -1
 
     public var isInCode: Boolean = true
     public var isEscaping: Boolean = false
     public var isInStr: Boolean = false
     public var isInComment: Boolean = false
-    public var commentX: Int? = null
+    public var commentX: Int = -1
 
     public var quoteDanger: Boolean = false
     public var trackingIndent: Boolean = false
     public var skipChar: Boolean = false
     public var success: Boolean = false
 
-    public var maxIndet: Int? = null
+    public var maxIndent: Int = -1
     public var indentDelta: Int = 0
 
     // TODO: create an Error object
@@ -165,7 +165,7 @@ fun initLine(result: Result, line: String) {
     result.lines.add(line)
 
     // reset line-specific state
-    result.commentX = null
+    result.commentX = -1
     result.indentDelta = 0
 }
 
@@ -193,7 +193,13 @@ fun clamp(valN: Int, minN: Int?, maxN: Int?) : Int {
     return returnN
 }
 
-// NOTE: the parinfer.js "peek" function is not really possible in a statically typed language
+fun peek(arr: ArrayList<StackItm>) : StackItm? {
+    val arrSize = arr.size()
+    if (arrSize == 0) {
+        return null
+    }
+    return arr.get(arrSize - 1)
+}
 
 //--------------------------------------------------------------------------------------------------
 // Character functions
@@ -209,11 +215,134 @@ fun isValidCloseParen(parenStack: ArrayList<StackItm>, ch: String) : Boolean {
     return lastStackItm.ch == PARENS.get(ch)
 }
 
+fun onOpenParen(result: Result) {
+    if (result.isInCode) {
+        val newStackItm = StackItm(result.lineNo, result.x, result.ch, result.indentDelta)
+        result.parenStack.add(newStackItm)
+    }
+}
+
+fun onMatchedCloseParen(result: Result) {
+    val parenStackSize = result.parenStack.size()
+    if (parenStackSize > 0) {
+        val opener = result.parenStack.get(parenStackSize - 1)
+        result.parenTrailEndX = result.x + 1
+        result.parenTrailOpeners.add(opener)
+        result.maxIndent = opener.x
+        result.parenStack.remove(parenStackSize - 1)
+    }
+}
+
+fun onUnmatchedCloseParen(result: Result) {
+    result.ch = ""
+}
+
+fun onCloseParen(result: Result) {
+    if (result.isInCode) {
+        if (isValidCloseParen(result.parenStack, result.ch)) {
+            onMatchedCloseParen(result)
+        }
+        else {
+            onUnmatchedCloseParen(result)
+        }
+    }
+}
+
+fun onTab(result: Result) {
+    if (result.isInCode) {
+        result.ch = DOUBLE_SPACE
+    }
+}
+
+fun onSemicolon(result: Result) {
+    if (result.isInCode) {
+        result.isInComment = true
+        result.commentX = result.x
+    }
+}
+
+fun onNewline(result: Result) {
+    result.isInComment = false
+    result.ch = ""
+}
+
+fun onQuote(result: Result) {
+    if (result.isInStr) {
+        result.isInStr = false
+    }
+    else if (result.isInComment) {
+        result.quoteDanger = ! result.quoteDanger
+        if (result.quoteDanger) {
+            // TODO:
+            //cacheErrorPos()
+        }
+    }
+    else {
+        result.isInStr = true
+        // TODO:
+        //cacheErrorPos()
+    }
+}
+
+fun onBackslash(result: Result) {
+    result.isEscaping = true
+}
+
+fun afterBackslash(result: Result) {
+    result.isEscaping = false
+
+    if (result.ch == NEWLINE) {
+        if (result.isInCode) {
+            // TODO: figure out throw
+        }
+        onNewline(result)
+    }
+}
+
+fun onChar(result: Result) {
+    val ch = result.ch;
+    if (result.isEscaping)       { afterBackslash(result) }
+    else if (isOpenParen(ch))    { onOpenParen(result) }
+    else if (isCloseParen(ch))   { onCloseParen(result) }
+    else if (ch == DOUBLE_QUOTE) { onQuote(result) }
+    else if (ch == SEMICOLON)    { onSemicolon(result) }
+    else if (ch == BACKSLASH)    { onBackslash(result) }
+    else if (ch == TAB)          { onTab(result) }
+    else if (ch == NEWLINE)      { onNewline(result) }
+
+    result.isInCode = !result.isInComment && !result.isInStr;
+}
+
 //--------------------------------------------------------------------------------------------------
 // Cursor functions
 //--------------------------------------------------------------------------------------------------
 
-// TODO: write me
+fun isCursorOnLeft(result: Result) : Boolean {
+    return result.lineNo == result.cursorLine &&
+           result.cursorX != -1 &&
+           result.cursorX <= result.x
+}
+
+fun isCursorOnRight(result: Result, x: Int) : Boolean {
+    return result.lineNo == result.cursorLine &&
+           result.cursorX != -1 &&
+           x != -1 &&
+           result.cursorX > x
+}
+
+fun isCursorInComment(result: Result) : Boolean {
+    return isCursorOnRight(result, result.commentX)
+}
+
+fun handleCursorDelta(result: Result) {
+    val hasCursorDelta = result.cursorDx != -1 &&
+                         result.cursorLine == result.lineNo &&
+                         result.cursorX == result.x
+
+    if (hasCursorDelta) {
+        result.indentDelta = result.indentDelta + result.cursorDx
+    }
+}
 
 //--------------------------------------------------------------------------------------------------
 // Paren Trail functions
