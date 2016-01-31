@@ -94,17 +94,17 @@ class Result(text: String, mode: String, options: ParinferOptions?) {
     public val origText: String = text
     public var origLines: List<String> = text.split("\\r?\\n")
 
-    public var lines: ArrayList<String> = arrayListOf<String>()
+    public var lines: ArrayList<String> = arrayListOf()
     public var lineNo: Int = -1
     public var ch: String = ""
     public var x: Int = 0
 
-    public var parenStack: Stack<StackItm> = Stack<StackItm>()
+    public var parenStack: Stack<StackItm> = Stack()
 
     public var parenTrailLineNo: Int = -1
     public var parenTrailStartX: Int = -1
     public var parenTrailEndX: Int = -1
-    public var parenTrailOpeners: Stack<StackItm> = Stack<StackItm>()
+    public var parenTrailOpeners: Stack<StackItm> = Stack()
 
     public var cursorX: Int = -1
     public var cursorLine: Int = -1
@@ -126,7 +126,7 @@ class Result(text: String, mode: String, options: ParinferOptions?) {
 
     public var error: ParinferException? = null
 
-    public var errorPosCache: HashMap<String, ErrorPos> = HashMap<String, ErrorPos>()
+    public var errorPosCache: HashMap<String, ErrorPos> = HashMap()
 
     init {
         if (options != null) {
@@ -139,6 +139,7 @@ class Result(text: String, mode: String, options: ParinferOptions?) {
 
 class LineDelta(val lineNo: Int, val line: String)
 
+// NOTE: this is the "public result" class
 class ParinferResult(result: Result) {
     public var text: String = ""
     public var success: Boolean = true
@@ -168,13 +169,11 @@ val ERROR_QUOTE_DANGER = "quote-danger"
 val ERROR_EOL_BACKSLASH = "eol-backslash"
 val ERROR_UNCLOSED_QUOTE = "unclosed-quote"
 val ERROR_UNCLOSED_PAREN = "unclosed-paren"
-val ERROR_UNHANDLED = "unhandled"
 
 val QUOTE_DANGER_MSG = "Quotes must balanced inside comment blocks."
 val EOL_BACKSLASH_MSG = "Line cannot end in a hanging backslash."
 val UNCLOSED_QUOTE_MSG = "String is missing a closing quote."
 val UNCLOSED_PAREN_MSG = "Unmatched open-paren."
-val UNHANDLED_MSG = "Unhandled error."
 
 fun cacheErrorPos(result: Result, errorName: String, lineNo: Int, x: Int) {
     result.errorPosCache[errorName] = ErrorPos(lineNo, x)

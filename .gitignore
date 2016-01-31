@@ -1,0 +1,13 @@
+## idea folder
+.idea/workspace.xml
+.idea/tasks.xml
+
+lib/
+out/
+
+## File-based project format
+*.ipr
+*.iws
+
+## ignore diff files
+*.diff
