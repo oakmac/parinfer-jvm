@@ -25,7 +25,7 @@ val NEWLINE = "\n"
 val SEMICOLON = ";"
 val TAB = "\t"
 
-// TODO: LINE_ENDING regex
+// NOTE: LINE_ENDING not needed
 
 val PARENS = hashMapOf(
     "{" to "}",
@@ -44,30 +44,33 @@ fun isCloseParen(c: String) : Boolean {
 }
 
 //--------------------------------------------------------------------------------------------------
-// Result Structure
+// Class Definitions
 //--------------------------------------------------------------------------------------------------
 
-final class Options() {
+class ParinferOptions(val cursorX: Int = -1,
+                      val cursorLine: Int = -1,
+                      val cursorDx: Int = -1)
 
-}
-
-final class ParinferError() {
+class ParinferException() : Throwable() {
     // NOTE: "parinferError" is unnecessary here because of the type system
     public val parinferError: Boolean = true
 }
 
-final class StackItm(lineNo: Int, x: Int, ch: String, indentDelta: Int) {
-    public val lineNo: Int = lineNo
-    public val x: Int = x
-    public val ch: String = ch
-    public val indentDelta: Int = indentDelta
-}
+class ParinferError(val name: String?,
+                    val message: String?,
+                    val lineNo: Int?,
+                    val x: Int?)
 
-final class Result(text: String, mode: String) {
+class StackItm(val lineNo: Int,
+               val x: Int,
+               val ch: String,
+               val indentDelta: Int)
+
+class Result(text: String, mode: String, options: ParinferOptions) {
     public val mode: String = mode
 
     public val origText: String = text
-    //public var origLines: String = ...
+    public var origLines: List<String> = text.split("\\r?\\n")
 
     public var lines: ArrayList<String> = arrayListOf<String>()
     public var lineNo: Int = -1
@@ -81,9 +84,9 @@ final class Result(text: String, mode: String) {
     public var parenTrailEndX: Int = -1
     public var parenTrailOpeners: Stack<StackItm> = Stack<StackItm>()
 
-    public var cursorX: Int = -1
-    public var cursorLine: Int = -1
-    public var cursorDx: Int = -1
+    public var cursorX: Int = options.cursorX
+    public var cursorLine: Int = options.cursorLine
+    public var cursorDx: Int = options.cursorDx
 
     public var isInCode: Boolean = true
     public var isEscaping: Boolean = false
@@ -99,13 +102,30 @@ final class Result(text: String, mode: String) {
     public var maxIndent: Int = -1
     public var indentDelta: Int = 0
 
-    // TODO: create an Error object
-    //public var errorName: String? = null
-    //public var errorMessage: String? = null
-    //public var errorLineNo: Int? = null
-    //public var errorX: Int? = null
+    public var errorName: String? = null
+    public var errorMessage: String? = null
+    public var errorLineNo: Int? = null
+    public var errorX: Int? = null
 
     //public var errorPosCache
+}
+
+class LineDelta(val lineNo: Int, val line: String)
+
+class ParinferResult(result: Result) {
+    public val text = result.origText
+    public val success = result.success
+    public var error: ParinferError? = null
+    public var changedLines: ArrayList<LineDelta>? = null
+
+    init {
+        if (result.errorName != null) {
+            this.error = ParinferError(result.errorName, result.errorMessage, result.errorLineNo, result.errorX)
+        }
+        else {
+            this.changedLines = getChangedLines(result)
+        }
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -202,12 +222,17 @@ fun clamp(valN: Int, minN: Int?, maxN: Int?) : Int {
     return returnN
 }
 
-fun peek(arr: ArrayList<StackItm>) : StackItm? {
-    val arrSize = arr.size
-    if (arrSize == 0) {
-        return null
+fun getChangedLines(result: Result) : ArrayList<LineDelta> {
+    var changedLines = ArrayList<LineDelta>()
+    var i = 0
+    while (i < result.lines.size) {
+        if (result.lines[i] != result.origLines[i]) {
+            val lineDelta = LineDelta(i, result.lines[i])
+            changedLines.add(lineDelta)
+        }
+        i++
     }
-    return arr.get(arrSize - 1)
+    return changedLines
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -398,9 +423,11 @@ fun clampParenTrailToCursor(result: Result) {
             i++
         }
 
-        // TODO: convert this to a Java.util.Stack?
-        // TODO: figure out .splice
-        //result.parenTrailOpeners.removeRange(0, removeCount)
+        var j = 0
+        while (j < removeCount) {
+            result.parenTrailOpeners.pop()
+            j++
+        }
         result.parenTrailStartX = newStartX
         result.parenTrailEndX = newEndX
     }
@@ -633,8 +660,9 @@ fun finalizeResult(result: Result) {
 }
 
 // TODO: figure out this function
-fun processError(result: Result, err: ParinferError) {
+fun processError(result: Result, err: ParinferException) {
     result.success = false
+    /*
     if (err.parinferError) {
         // TODO: figure out "delete"
         // TODO: result.error = err
@@ -643,12 +671,11 @@ fun processError(result: Result, err: ParinferError) {
         // result.error.name = ERROR_UNHANDLED
         // result.error.message = err.stack
     }
+    */
 }
 
-// TODO: figure out try
-fun processText(text: String, options: Options, mode: String) : Result {
-    /*
-    var result = Result()
+fun processText(text: String, options: ParinferOptions, mode: String) : Result {
+    var result = Result(text, mode, options)
 
     try {
         var i = 0
@@ -658,16 +685,29 @@ fun processText(text: String, options: Options, mode: String) : Result {
         }
         finalizeResult(result)
     }
-    catch (err) {
+    catch (err: ParinferException) {
         processError(result, err)
     }
 
     return result
-    */
 }
 
 //--------------------------------------------------------------------------------------------------
 // Public API
+//--------------------------------------------------------------------------------------------------
+
+fun indentMode(text: String, options: ParinferOptions) : ParinferResult {
+    val result = processText(text, options, INDENT_MODE)
+    return ParinferResult(result)
+}
+
+fun parenMode(text: String, options: ParinferOptions) : ParinferResult {
+    val result = processText(text, options, PAREN_MODE)
+    return ParinferResult(result)
+}
+
+//--------------------------------------------------------------------------------------------------
+// DEBUG...
 //--------------------------------------------------------------------------------------------------
 
 fun main(args: Array<String>) {
