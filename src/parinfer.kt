@@ -197,16 +197,17 @@ fun cacheErrorPos(result: MutableResult, errorName: String, lineNo: Int, x: Int)
 // String Operations
 //--------------------------------------------------------------------------------------------------
 
-fun replaceWithinString(orig: String, start: Int, end: Int, replace: String) : String {
-    /*println(start)
-    println(end)
-    println(orig.length)
-    println(replace.length)
-    println( "XX" + head + "XX")
-    println( "YY" + replace + "YY")
-    println( "ZZ" + tail + "ZZ")
-    println("``````````````````````````````")*/
+fun insertWithinString(orig: String, idx: Int, insert: String) : String {
+    if (insert == "") {
+        return orig
+    }
 
+    val head = orig.substring(0, idx)
+    var tail = orig.substring(idx, orig.length)
+    return head + insert + tail
+}
+
+fun replaceWithinString(orig: String, start: Int, end: Int, replace: String) : String {
     var head = orig.substring(0, start)
     var tail = ""
     if (end < orig.length) {
@@ -242,11 +243,9 @@ fun poorMansJoin(arr: ArrayList<String>, lf: String) : String {
 // Line operations
 //--------------------------------------------------------------------------------------------------
 
-fun insertWithinLine(result: MutableResult, lineNo: Int, idx: Int, middle: String) {
+fun insertWithinLine(result: MutableResult, lineNo: Int, idx: Int, insert: String) {
     val line = result.lines[lineNo]
-    val head = line.substring(0, idx)
-    val tail = line.substring(idx, line.length)
-    result.lines[lineNo] = head + middle + tail
+    result.lines[lineNo] = insertWithinString(line, idx, insert)
 }
 
 fun replaceWithinLine(result: MutableResult, lineNo: Int, start: Int, end: Int, replace: String) {
@@ -686,13 +685,7 @@ fun processChar(result: MutableResult, ch: String) {
         updateParenTrailBounds(result)
     }
 
-    //println("a")
-    //println(result.lines[result.lineNo])
-
     commitChar(result, origCh)
-
-    //println(result.lines[result.lineNo])
-    //println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 }
 
 fun processLine(result: MutableResult, line: String) {
@@ -713,13 +706,8 @@ fun processLine(result: MutableResult, line: String) {
         i++
     }
 
-    //println("alligator")
-
     if (result.lineNo == result.parenTrailLineNo) {
-        //println(result.lines[result.lineNo])
         finishNewParenTrail(result)
-        //println(result.lines[result.lineNo])
-        //println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     }
 }
 
@@ -787,8 +775,10 @@ fun parenMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): Pa
 
 /*
 fun main(args: Array<String>) {
-    val result = indentMode("(def foo [a b]]", null, null, null)
-    val expectedResult = "(def foo [a b])"
+    // val result = indentMode("(def b [[c d] ])", 14, 0, null)
+    // val expectedResult = "(def b [[c d] ])"
+    val result = indentMode("(let [a 1])\n  ret)", 10, 0, null)
+    val expectedResult = "(let [a 1]\n  ret)"
 
     if (result.text == expectedResult) {
         println("Yay! It worked")

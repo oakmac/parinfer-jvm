@@ -16,10 +16,12 @@
    :error (.-error result-obj)
    :changed-lines (.-changedLines result-obj)})
 
-(defn- run-indent-mode-tests!
-  []
-  (doseq [test indent-mode-tests]
-  ;(let [test (first indent-mode-tests)]
+(defn- run-tests!
+  [mode tests]
+  (if (= mode :indent)
+    (println "Running Indent Mode Tests:")
+    (println "Running Paren Mode Tests:"))
+  (doseq [test tests]
     (let [test-id (get-in test [:in :fileLineNo])
           in-text (join "\n" (get-in test [:in :lines]))
           expected-text (join "\n" (get-in test [:out :lines]))
@@ -33,21 +35,15 @@
           cursor-dx (get-in test [:in :cursor :cursorDx] nil)
           cursor-dx (if (nil? cursor-dx) nil (int cursor-dx))
 
-          result-obj (ParinferKt/indentMode in-text cursor-x cursor-line cursor-dx)
+          result-obj (if (= mode :indent)
+                       (ParinferKt/indentMode in-text cursor-x cursor-line cursor-dx)
+                       (ParinferKt/parenMode in-text cursor-x cursor-line cursor-dx))
           result (result->map result-obj)]
-      ; (println (str "xx" in-text "xx"))
-      ; (println (str "zz" expected-text "zz"))
-      ; (println (str "yy" (:text result) "yy"))
-      ; (println "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"))))
       (if (not= expected-text (:text result))
         (println (str "Test " test-id " FAILED!!!"))
-        (println (str "Test " test-id " passed"))))))
+        (println (str "Test " test-id " passed")))))
+  (println "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"))
 
 (defn -main [& args]
-  (run-indent-mode-tests!))
-  ;(run-paren-mode-tests!))
-
-  ; (-> (ParinferKt/indentMode "(def foo\n[a b\nc])" nil)
-  ;     result->map
-  ;     pr-str
-  ;     print))
+  (run-tests! :indent indent-mode-tests)
+  (run-tests! :paren paren-mode-tests))
