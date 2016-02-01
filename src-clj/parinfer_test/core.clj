@@ -1,5 +1,5 @@
 (ns parinfer-test.core
-  (:import [com.github.oakmac.parinfer ParinferKt])
+  (:import [com.oakmac.parinfer ParinferKt])
   (:require
     [clojure.data.json :as json]
     [clojure.string :refer [join]]
@@ -9,7 +9,7 @@
 (def paren-mode-tests (-> "tests/paren-mode.json" slurp json/read-str keywordize-keys))
 
 (defn- result->map
-  "Convert a ParinferResult to a Clojure Map."
+  "Convert a ParinferResult Object to a Clojure Map."
   [result-obj]
   {:text (.-text result-obj)
    :success (.-success result-obj)

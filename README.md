@@ -15,7 +15,7 @@ Instal [Kotlin] and [Leiningen].
 
 ```sh
 # compile a parinfer.jar file
-kotlinc src-kt/parinfer.kt -include-runtime -d lib/parinfer.jar
+kotlinc src/com/oakmac/parinfer/parinfer.kt -include-runtime -d lib/parinfer.jar
 
 # run the tests
 lein run

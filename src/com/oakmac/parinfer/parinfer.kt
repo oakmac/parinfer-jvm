@@ -1,5 +1,5 @@
 // parinfer-jvm - a Parinfer implementation for the JVM
-// v0.1.0-DEV
+// v0.1.0+dev
 // https://github.com/oakmac/parinfer-jvm
 //
 // More information about Parinfer can be found here:
@@ -9,7 +9,7 @@
 // Released under the ISC license
 // https://github.com/oakmac/parinfer-jvm/blob/master/LICENSE.md
 
-package com.github.oakmac.parinfer
+package com.oakmac.parinfer
 
 import java.lang.Math
 import java.util.ArrayList
@@ -404,14 +404,30 @@ fun afterBackslash(result: MutableResult) {
 
 fun onChar(result: MutableResult) {
     val ch = result.ch
-    if (result.isEscaping)       { afterBackslash(result) }
-    else if (isOpenParen(ch))    { onOpenParen(result) }
-    else if (isCloseParen(ch))   { onCloseParen(result) }
-    else if (ch == DOUBLE_QUOTE) { onQuote(result) }
-    else if (ch == SEMICOLON)    { onSemicolon(result) }
-    else if (ch == BACKSLASH)    { onBackslash(result) }
-    else if (ch == TAB)          { onTab(result) }
-    else if (ch == NEWLINE)      { onNewline(result) }
+    if (result.isEscaping)       {
+        afterBackslash(result)
+    }
+    else if (isOpenParen(ch))    {
+        onOpenParen(result)
+    }
+    else if (isCloseParen(ch))   {
+        onCloseParen(result)
+    }
+    else if (ch == DOUBLE_QUOTE) {
+        onQuote(result)
+    }
+    else if (ch == SEMICOLON)    {
+        onSemicolon(result)
+    }
+    else if (ch == BACKSLASH)    {
+        onBackslash(result)
+    }
+    else if (ch == TAB)          {
+        onTab(result)
+    }
+    else if (ch == NEWLINE)      {
+        onNewline(result)
+    }
 
     result.isInCode = !result.isInComment && !result.isInStr
 }
@@ -458,7 +474,7 @@ fun updateParenTrailBounds(result: MutableResult) {
                             line[result.x - 1] == BACKSLASH_CHAR
 
     val shouldReset = result.isInCode &&
-                      ! isCloseParen(ch) &&
+                      !isCloseParen(ch) &&
                       ch != "" &&
                       (ch != BLANK_SPACE || prevChIsBackslash) &&
                       ch != DOUBLE_SPACE
@@ -477,7 +493,7 @@ fun clampParenTrailToCursor(result: MutableResult) {
     val endX = result.parenTrailEndX
 
     val isCursorClamping = isCursorOnRight(result, startX) &&
-                           ! isCursorInComment(result)
+                           !isCursorInComment(result)
 
     if (isCursorClamping) {
         val newStartX = Math.max(startX, result.cursorX)
