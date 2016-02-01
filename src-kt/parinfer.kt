@@ -773,12 +773,9 @@ fun parenMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): Pa
 // DEBUG...
 //--------------------------------------------------------------------------------------------------
 
-/*
 fun main(args: Array<String>) {
-    // val result = indentMode("(def b [[c d] ])", 14, 0, null)
-    // val expectedResult = "(def b [[c d] ])"
-    val result = indentMode("(let [a 1])\n  ret)", 10, 0, null)
-    val expectedResult = "(let [a 1]\n  ret)"
+    val result = parenMode("(let [foo 1]\nfoo)", null, null, null)
+    val expectedResult = "(let [foo 1]\n foo)"
 
     if (result.text == expectedResult) {
         println("Yay! It worked")
@@ -788,4 +785,3 @@ fun main(args: Array<String>) {
         println( result.text )
     }
 }
-*/
