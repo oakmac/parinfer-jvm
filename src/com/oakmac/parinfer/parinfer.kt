@@ -217,6 +217,16 @@ fun replaceWithinString(orig: String, start: Int, end: Int, replace: String) : S
     return head + replace + tail
 }
 
+fun repeatString(text: String, n: Int) : String {
+    var i = 0
+    var result = ""
+    while (i < n) {
+        result += text
+        i++
+    }
+    return result
+}
+
 // NOTE: We assume that if the CR char "\r" is used anywhere,
 //       then we should use CRLF line-endings after every line.
 fun getLineEnding(text: String) : String {
@@ -283,13 +293,13 @@ fun commitChar(result: MutableResult, origCh: String) {
 // Misc Util
 //--------------------------------------------------------------------------------------------------
 
-fun clamp(valN: Int, minN: Int?, maxN: Int?) : Int {
+fun clamp(valN: Int, minN: Int, maxN: Int) : Int {
     var returnN = valN
-    if (minN != null) {
-        returnN = Math.max(minN, valN)
+    if (minN != -1) {
+        returnN = Math.max(minN, returnN)
     }
-    if (maxN != null) {
-        returnN = Math.min(maxN, valN)
+    if (maxN != -1) {
+        returnN = Math.min(maxN, returnN)
     }
     return returnN
 }
@@ -620,10 +630,7 @@ fun correctIndent(result: MutableResult) {
     newIndent = clamp(newIndent, minIndent, maxIndent)
 
     if (newIndent != origIndent) {
-        var indentStr = BLANK_SPACE
-        if (newIndent > 0) {
-            indentStr = BLANK_SPACE.repeat(newIndent)
-        }
+        var indentStr = repeatString(BLANK_SPACE, newIndent)
         replaceWithinLine(result, result.lineNo, 0, origIndent, indentStr)
         result.x = newIndent
         result.indentDelta += (newIndent - origIndent)
@@ -748,7 +755,7 @@ fun finalizeResult(result: MutableResult) {
     result.success = true
 }
 
-// NOTE: processError function not needed due to type system
+// NOTE: processError function not needed due to the type system
 
 fun processText(text: String, options: ParinferOptions?, mode: String) : MutableResult {
     var result = MutableResult(text, mode, options)
@@ -789,6 +796,7 @@ fun parenMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): Pa
 // DEBUG...
 //--------------------------------------------------------------------------------------------------
 
+/*
 fun main(args: Array<String>) {
     val result = parenMode("(let [foo 1]\nfoo)", null, null, null)
     val expectedResult = "(let [foo 1]\n foo)"
@@ -801,3 +809,4 @@ fun main(args: Array<String>) {
         println( result.text )
     }
 }
+*/
