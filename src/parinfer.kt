@@ -197,6 +197,25 @@ fun cacheErrorPos(result: MutableResult, errorName: String, lineNo: Int, x: Int)
 // String Operations
 //--------------------------------------------------------------------------------------------------
 
+fun replaceWithinString(orig: String, start: Int, end: Int, replace: String) : String {
+    /*println(start)
+    println(end)
+    println(orig.length)
+    println(replace.length)
+    println( "XX" + head + "XX")
+    println( "YY" + replace + "YY")
+    println( "ZZ" + tail + "ZZ")
+    println("``````````````````````````````")*/
+
+    var head = orig.substring(0, start)
+    var tail = ""
+    if (end < orig.length) {
+        tail = orig.substring(end, orig.length)
+    }
+
+    return head + replace + tail
+}
+
 // NOTE: We assume that if the CR char "\r" is used anywhere,
 //       then we should use CRLF line-endings after every line.
 fun getLineEnding(text: String) : String {
@@ -232,14 +251,7 @@ fun insertWithinLine(result: MutableResult, lineNo: Int, idx: Int, middle: Strin
 
 fun replaceWithinLine(result: MutableResult, lineNo: Int, start: Int, end: Int, replace: String) {
     val line = result.lines[lineNo]
-    if (replace != "" && start != end) {
-        if (start < end) {
-            result.lines[lineNo] = line.replaceRange(start, end, replace)
-        }
-        else {
-            result.lines[lineNo] = line.replaceRange(end, start, replace)
-        }
-    }
+    result.lines[lineNo] = replaceWithinString(line, start, end, replace)
 }
 
 fun removeWithinLine(result: MutableResult, lineNo: Int, start: Int, end: Int) {
@@ -265,7 +277,7 @@ fun commitChar(result: MutableResult, origCh: String) {
     if (origCh != ch) {
         replaceWithinLine(result, result.lineNo, result.x, result.x + origCh.length, ch)
     }
-    result.x = result.x + ch.length
+    result.x += ch.length
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -501,7 +513,7 @@ fun removeParenTrail(result: MutableResult) {
     }
 
     val openers = result.parenTrailOpeners
-    while (openers.size != 0) {
+    while (! openers.empty()) {
         result.parenStack.push(openers.pop())
     }
 
@@ -511,7 +523,7 @@ fun removeParenTrail(result: MutableResult) {
 fun correctParenTrail(result: MutableResult, indentX: Int) {
     var parens = ""
 
-    while (result.parenStack.size > 0) {
+    while (! result.parenStack.empty()) {
         val opener = result.parenStack.peek()
         if (opener.x >= indentX) {
             result.parenStack.pop()
@@ -674,14 +686,20 @@ fun processChar(result: MutableResult, ch: String) {
         updateParenTrailBounds(result)
     }
 
+    //println("a")
+    //println(result.lines[result.lineNo])
+
     commitChar(result, origCh)
+
+    //println(result.lines[result.lineNo])
+    //println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 }
 
 fun processLine(result: MutableResult, line: String) {
     initLine(result, line)
 
     if (result.mode == INDENT_MODE) {
-        result.trackingIndent = result.parenStack.size != 0 &&
+        result.trackingIndent = ! result.parenStack.empty() &&
                                 ! result.isInStr
     }
     else if (result.mode == PAREN_MODE) {
@@ -695,8 +713,13 @@ fun processLine(result: MutableResult, line: String) {
         i++
     }
 
+    //println("alligator")
+
     if (result.lineNo == result.parenTrailLineNo) {
+        //println(result.lines[result.lineNo])
         finishNewParenTrail(result)
+        //println(result.lines[result.lineNo])
+        //println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     }
 }
 
@@ -762,7 +785,17 @@ fun parenMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): Pa
 // DEBUG...
 //--------------------------------------------------------------------------------------------------
 
+/*
 fun main(args: Array<String>) {
-    val result = indentMode("(defn foo\n  [arg\n  ret", null, null, null)
-    println( result.text )
+    val result = indentMode("(def foo [a b]]", null, null, null)
+    val expectedResult = "(def foo [a b])"
+
+    if (result.text == expectedResult) {
+        println("Yay! It worked")
+    }
+    else {
+        println("No bueno :(")
+        println( result.text )
+    }
 }
+*/
