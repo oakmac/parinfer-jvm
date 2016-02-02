@@ -1,5 +1,5 @@
 // parinfer-jvm - a Parinfer implementation for the JVM
-// v0.1.0+dev
+// v0.1.0
 // https://github.com/oakmac/parinfer-jvm
 //
 // More information about Parinfer can be found here:
@@ -38,7 +38,7 @@ val NEWLINE = "\n"
 val SEMICOLON = ";"
 val TAB = "\t"
 
-// NOTE: LINE_ENDING not needed
+val LINE_ENDING_REGEX = "\\r?\\n".toRegex()
 
 val PARENS = hashMapOf(
     "{" to "}",
@@ -112,7 +112,7 @@ class MutableResult(text: String, mode: String, options: ParinferOptions) {
     public val mode: String = mode
 
     public val origText: String = text
-    public var origLines: List<String> = text.split("\\r?\\n".toRegex())
+    public var origLines: List<String> = text.split(LINE_ENDING_REGEX)
 
     public var lines: ArrayList<String> = arrayListOf()
     public var lineNo: Int = -1
@@ -785,23 +785,3 @@ fun parenMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): Pa
     val result = processText(text, options, PAREN_MODE)
     return ParinferResult(result)
 }
-
-//--------------------------------------------------------------------------------------------------
-// DEBUG...
-//--------------------------------------------------------------------------------------------------
-
-/*
-fun main(args: Array<String>) {
-    val result1 = indentMode("(let [a 1])\n  ret)", null, null, null)
-    val result2 = indentMode("(let [a 1])\n  ret)", 10, 0, null)
-    val expectedResult = "(let [a 1]\n  ret)"
-
-    if (result2.text == expectedResult) {
-        println("Yay! It worked")
-    }
-    else {
-        println("No bueno :(")
-        println( result2.text )
-    }
-}
-*/
