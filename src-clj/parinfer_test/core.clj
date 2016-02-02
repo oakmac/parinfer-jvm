@@ -3,25 +3,28 @@
   (:require
     [clojure.data.json :as json]
     [clojure.string :refer [join]]
+    [clojure.test :refer [deftest is run-tests]]
     [clojure.walk :refer [keywordize-keys]]))
 
-(def indent-mode-tests (-> "tests/indent-mode.json" slurp json/read-str keywordize-keys))
-(def paren-mode-tests (-> "tests/paren-mode.json" slurp json/read-str keywordize-keys))
+;; load test cases
+(def indent-mode-cases (-> "tests/indent-mode.json" slurp json/read-str keywordize-keys))
+(def paren-mode-cases  (-> "tests/paren-mode.json"  slurp json/read-str keywordize-keys))
 
-(defn- result->map
-  "Convert a ParinferResult Object to a Clojure Map."
-  [result-obj]
-  {:text (.-text result-obj)
-   :success (.-success result-obj)
-   :error (.-error result-obj)
-   :changed-lines (.-changedLines result-obj)})
+(defn- indent-mode
+  "Wrapper around ParinferKt/indentMode
+   Returns only the result text"
+  [txt cursor-x cursor-line cursor-dx]
+  (.-text (ParinferKt/indentMode txt cursor-x cursor-line cursor-dx)))
 
-(defn- run-tests!
-  [mode tests]
-  (if (= mode :indent)
-    (println "Running Indent Mode Tests:")
-    (println "Running Paren Mode Tests:"))
-  (doseq [test tests]
+(defn- paren-mode
+  "Wrapper around ParinferKt/parenMode
+   Returns only the result text"
+  [txt cursor-x cursor-line cursor-dx]
+  (.-text (ParinferKt/parenMode txt cursor-x cursor-line cursor-dx)))
+
+(defn- check-cases
+  [mode test-cases]
+  (doseq [test test-cases]
     (let [test-id (get-in test [:in :fileLineNo])
           in-text (join "\n" (get-in test [:in :lines]))
           expected-text (join "\n" (get-in test [:out :lines]))
@@ -35,15 +38,26 @@
           cursor-dx (get-in test [:in :cursor :cursorDx] nil)
           cursor-dx (if (nil? cursor-dx) nil (int cursor-dx))
 
-          result-obj (if (= mode :indent)
-                       (ParinferKt/indentMode in-text cursor-x cursor-line cursor-dx)
-                       (ParinferKt/parenMode in-text cursor-x cursor-line cursor-dx))
-          result (result->map result-obj)]
-      (if (not= expected-text (:text result))
-        (println (str "Test " test-id " FAILED!!!"))
-        (println (str "Test " test-id " passed")))))
-  (println "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"))
+          out-text (if (= mode :indent)
+                     (indent-mode in-text cursor-x cursor-line cursor-dx)
+                     (paren-mode in-text cursor-x cursor-line cursor-dx))
+
+          out-text2 (if (= mode :indent)
+                      (indent-mode out-text cursor-x cursor-line cursor-dx)
+                      (paren-mode out-text cursor-x cursor-line cursor-dx))]
+      (is (= out-text expected-text) (str "in/out text: test id " test-id))
+      (is (= out-text2 expected-text) (str "idempotence: test id " test-id))
+      (when (= nil cursor-x cursor-line cursor-dx)
+        (let [out-text3 (if (= mode :indent)
+                          (paren-mode out-text nil nil nil)
+                          (indent-mode out-text nil nil nil))]
+          (is (= out-text3 expected-text) (str "cross-mode preservation: test id " test-id)))))))
+
+(deftest indent-mode-test
+  (check-cases :indent indent-mode-cases))
+
+(deftest paren-mode-test
+  (check-cases :paren paren-mode-cases))
 
 (defn -main [& args]
-  (run-tests! :indent indent-mode-tests)
-  (run-tests! :paren paren-mode-tests))
+  (run-tests 'parinfer-test.core))
