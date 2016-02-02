@@ -16,18 +16,6 @@ Parinfer repo].
 I am a total novice to the JVM ecosystem and the Kotlin language. There is
 likely lots of room for improvement here. PR's welcome :)
 
-## Development Wishlist
-
-* [x] Get something compiling using Kotlin
-* [x] Port [parinfer.js] functions
-* [x] Set up a test harness using Clojure
-* [x] Get all the tests passing
-* [ ] Publish to the Java-equivalent of [npm]
-* [ ] Write a performance test
-* [ ] Wrap tests using an idiomatic testing library
-* [ ] Hand off ownership of this project
-* [ ] Never use a statically-typed language again
-
 ## Development Setup
 
 Instal [Kotlin] and [Leiningen].
@@ -39,6 +27,18 @@ kotlinc src/com/oakmac/parinfer/parinfer.kt -include-runtime -d lib/parinfer.jar
 # run the tests
 lein run
 ```
+
+## Development Wishlist
+
+* [x] Get something compiling using Kotlin
+* [x] Port [parinfer.js] functions
+* [x] Set up a test harness using Clojure
+* [x] Get all the tests passing
+* [ ] Publish to the Java-equivalent of [npm]
+* [ ] Write a performance test
+* [ ] Wrap tests using an idiomatic testing library
+* [ ] Hand off ownership of this project
+* [ ] Never use a statically-typed language again
 
 ## License
 
