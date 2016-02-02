@@ -24,7 +24,7 @@ import java.util.Stack
 // I thought it would be simpler in a statically-typed language to keep everyting as an Int
 // and use this sentinel value to indicate "null"
 // https://en.wikipedia.org/wiki/Sentinel_value
-var SENTINEL_NULL = -999
+val SENTINEL_NULL = -999
 
 val INDENT_MODE = "INDENT_MODE"
 val PAREN_MODE = "PAREN_MODE"
@@ -320,12 +320,11 @@ fun getChangedLines(result: MutableResult) : ArrayList<LineDelta> {
 //--------------------------------------------------------------------------------------------------
 
 fun isValidCloseParen(parenStack: Stack<StackItm>, ch: String) : Boolean {
-    val parenStackSize = parenStack.size
-    if (parenStackSize == 0) {
+    if (parenStack.isEmpty()) {
         return false
     }
 
-    val lastStackItm = parenStack[parenStackSize - 1]
+    val lastStackItm = parenStack.peek()
     return lastStackItm.ch == PARENS[ch]
 }
 
@@ -337,13 +336,11 @@ fun onOpenParen(result: MutableResult) {
 }
 
 fun onMatchedCloseParen(result: MutableResult) {
-    if (result.parenStack.size > 0) {
-        val opener = result.parenStack.peek()
-        result.parenTrailEndX = result.x + 1
-        result.parenTrailOpeners.push(opener)
-        result.maxIndent = opener.x
-        result.parenStack.pop()
-    }
+    val opener = result.parenStack.peek()
+    result.parenTrailEndX = result.x + 1
+    result.parenTrailOpeners.push(opener)
+    result.maxIndent = opener.x
+    result.parenStack.pop()
 }
 
 fun onUnmatchedCloseParen(result: MutableResult) {
@@ -519,7 +516,7 @@ fun clampParenTrailToCursor(result: MutableResult) {
 
         var j = 0
         while (j < removeCount) {
-            result.parenTrailOpeners.pop()
+            result.parenTrailOpeners.removeAt(0)
             j++
         }
         result.parenTrailStartX = newStartX
@@ -535,9 +532,8 @@ fun removeParenTrail(result: MutableResult) {
         return
     }
 
-    val openers = result.parenTrailOpeners
-    while (openers.isNotEmpty()) {
-        result.parenStack.push(openers.pop())
+    while (result.parenTrailOpeners.isNotEmpty()) {
+        result.parenStack.push(result.parenTrailOpeners.pop())
     }
 
     removeWithinLine(result, result.lineNo, startX, endX)
@@ -799,13 +795,6 @@ fun main(args: Array<String>) {
     val result1 = indentMode("(let [a 1])\n  ret)", null, null, null)
     val result2 = indentMode("(let [a 1])\n  ret)", 10, 0, null)
     val expectedResult = "(let [a 1]\n  ret)"
-
-    // println("`````````````````````````")
-    // println(result1.success)
-    // println(result1.text)
-    // println("`````````````````````````")
-    // println(result2.success)
-    // println(result2.text)
 
     if (result2.text == expectedResult) {
         println("Yay! It worked")
