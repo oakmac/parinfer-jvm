@@ -34,11 +34,11 @@ lein run
 * [x] Port [parinfer.js] functions
 * [x] Set up a test harness using Clojure
 * [x] Get all the tests passing
+* [x] Wrap tests using an idiomatic testing library
 * [ ] Publish to the Java-equivalent of [npm]
 * [ ] Write a performance test
-* [ ] Wrap tests using an idiomatic testing library
 * [ ] Hand off ownership of this project
-* [ ] Never use a statically-typed language again
+* [ ] Never use a statically-typed language again ;)
 
 ## License
 
