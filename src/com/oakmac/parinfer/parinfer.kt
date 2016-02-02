@@ -20,6 +20,12 @@ import java.util.Stack
 // Constants / Predicates
 //--------------------------------------------------------------------------------------------------
 
+// NOTE: parinfer.js uses a lot of "null or Int" values
+// I thought it would be simpler in a statically-typed language to keep everyting as an Int
+// and use this sentinel value to indicate "null"
+// https://en.wikipedia.org/wiki/Sentinel_value
+var SENTINEL_NULL = -999
+
 val INDENT_MODE = "INDENT_MODE"
 val PAREN_MODE = "PAREN_MODE"
 
@@ -55,9 +61,9 @@ fun isCloseParen(c: String) : Boolean {
 //--------------------------------------------------------------------------------------------------
 
 class ParinferOptions(cursorX: Int?, cursorLine: Int?, cursorDx: Int?) {
-    public var cursorX: Int = -1
-    public var cursorLine: Int = -1
-    public var cursorDx: Int = -1
+    public var cursorX: Int = SENTINEL_NULL
+    public var cursorLine: Int = SENTINEL_NULL
+    public var cursorDx: Int = SENTINEL_NULL
 
     init {
         if (cursorX != null) {
@@ -75,8 +81,8 @@ class ParinferOptions(cursorX: Int?, cursorLine: Int?, cursorDx: Int?) {
 class ParinferException(result: MutableResult, errorName: String, errorMessage: String, lineNo: Int?, x: Int?) : Throwable() {
     public val name: String = errorName
     public val description: String = errorMessage
-    public var lineNo: Int = -1
-    public var x: Int = -1
+    public var lineNo: Int = SENTINEL_NULL
+    public var x: Int = SENTINEL_NULL
 
     init {
         if (lineNo == null) {
@@ -102,7 +108,7 @@ class StackItm(val lineNo: Int,
                val ch: String,
                val indentDelta: Int)
 
-class MutableResult(text: String, mode: String, options: ParinferOptions?) {
+class MutableResult(text: String, mode: String, options: ParinferOptions) {
     public val mode: String = mode
 
     public val origText: String = text
@@ -115,40 +121,32 @@ class MutableResult(text: String, mode: String, options: ParinferOptions?) {
 
     public var parenStack: Stack<StackItm> = Stack()
 
-    public var parenTrailLineNo: Int = -1
-    public var parenTrailStartX: Int = -1
-    public var parenTrailEndX: Int = -1
+    public var parenTrailLineNo: Int = SENTINEL_NULL
+    public var parenTrailStartX: Int = SENTINEL_NULL
+    public var parenTrailEndX: Int = SENTINEL_NULL
     public var parenTrailOpeners: Stack<StackItm> = Stack()
 
-    public var cursorX: Int = -1
-    public var cursorLine: Int = -1
-    public var cursorDx: Int = -1
+    public var cursorX: Int = options.cursorX
+    public var cursorLine: Int = options.cursorLine
+    public var cursorDx: Int = options.cursorDx
 
     public var isInCode: Boolean = true
     public var isEscaping: Boolean = false
     public var isInStr: Boolean = false
     public var isInComment: Boolean = false
-    public var commentX: Int = -1
+    public var commentX: Int = SENTINEL_NULL
 
     public var quoteDanger: Boolean = false
     public var trackingIndent: Boolean = false
     public var skipChar: Boolean = false
     public var success: Boolean = false
 
-    public var maxIndent: Int = -1
+    public var maxIndent: Int = SENTINEL_NULL
     public var indentDelta: Int = 0
 
     public var error: ParinferException? = null
 
     public var errorPosCache: HashMap<String, ErrorPos> = HashMap()
-
-    init {
-        if (options != null) {
-            this.cursorX = options.cursorX
-            this.cursorLine = options.cursorLine
-            this.cursorDx = options.cursorDx
-        }
-    }
 }
 
 class LineDelta(val lineNo: Int, val line: String)
@@ -276,7 +274,7 @@ fun initLine(result: MutableResult, line: String) {
     result.lines.add(line)
 
     // reset line-specific state
-    result.commentX = -1
+    result.commentX = SENTINEL_NULL
     result.indentDelta = 0
 }
 
@@ -295,10 +293,10 @@ fun commitChar(result: MutableResult, origCh: String) {
 
 fun clamp(valN: Int, minN: Int, maxN: Int) : Int {
     var returnN = valN
-    if (minN != -1) {
+    if (minN != SENTINEL_NULL) {
         returnN = Math.max(minN, returnN)
     }
-    if (maxN != -1) {
+    if (maxN != SENTINEL_NULL) {
         returnN = Math.min(maxN, returnN)
     }
     return returnN
@@ -414,28 +412,28 @@ fun afterBackslash(result: MutableResult) {
 
 fun onChar(result: MutableResult) {
     val ch = result.ch
-    if (result.isEscaping)       {
+    if (result.isEscaping) {
         afterBackslash(result)
     }
-    else if (isOpenParen(ch))    {
+    else if (isOpenParen(ch)) {
         onOpenParen(result)
     }
-    else if (isCloseParen(ch))   {
+    else if (isCloseParen(ch)) {
         onCloseParen(result)
     }
     else if (ch == DOUBLE_QUOTE) {
         onQuote(result)
     }
-    else if (ch == SEMICOLON)    {
+    else if (ch == SEMICOLON) {
         onSemicolon(result)
     }
-    else if (ch == BACKSLASH)    {
+    else if (ch == BACKSLASH) {
         onBackslash(result)
     }
-    else if (ch == TAB)          {
+    else if (ch == TAB) {
         onTab(result)
     }
-    else if (ch == NEWLINE)      {
+    else if (ch == NEWLINE) {
         onNewline(result)
     }
 
@@ -448,14 +446,14 @@ fun onChar(result: MutableResult) {
 
 fun isCursorOnLeft(result: MutableResult) : Boolean {
     return result.lineNo == result.cursorLine &&
-           result.cursorX != -1 &&
+           result.cursorX != SENTINEL_NULL &&
            result.cursorX <= result.x
 }
 
 fun isCursorOnRight(result: MutableResult, x: Int) : Boolean {
     return result.lineNo == result.cursorLine &&
-           result.cursorX != -1 &&
-           x != -1 &&
+           result.cursorX != SENTINEL_NULL &&
+           x != SENTINEL_NULL &&
            result.cursorX > x
 }
 
@@ -464,7 +462,7 @@ fun isCursorInComment(result: MutableResult) : Boolean {
 }
 
 fun handleCursorDelta(result: MutableResult) {
-    val hasCursorDelta = result.cursorDx != -1 &&
+    val hasCursorDelta = result.cursorDx != SENTINEL_NULL &&
                          result.cursorLine == result.lineNo &&
                          result.cursorX == result.x
 
@@ -494,7 +492,7 @@ fun updateParenTrailBounds(result: MutableResult) {
         result.parenTrailStartX = result.x + 1
         result.parenTrailEndX = result.x + 1
         result.parenTrailOpeners.clear()
-        result.maxIndent = -1
+        result.maxIndent = SENTINEL_NULL
     }
 }
 
@@ -538,7 +536,7 @@ fun removeParenTrail(result: MutableResult) {
     }
 
     val openers = result.parenTrailOpeners
-    while (! openers.empty()) {
+    while (openers.isNotEmpty()) {
         result.parenStack.push(openers.pop())
     }
 
@@ -548,7 +546,7 @@ fun removeParenTrail(result: MutableResult) {
 fun correctParenTrail(result: MutableResult, indentX: Int) {
     var parens = ""
 
-    while (! result.parenStack.empty()) {
+    while (result.parenStack.isNotEmpty()) {
         val opener = result.parenStack.peek()
         if (opener.x >= indentX) {
             result.parenStack.pop()
@@ -621,7 +619,7 @@ fun correctIndent(result: MutableResult) {
     var minIndent = 0
     val maxIndent = result.maxIndent
 
-    if (! result.parenStack.empty()) {
+    if (result.parenStack.isNotEmpty()) {
         val opener = result.parenStack.peek()
         minIndent = opener.x + 1
         newIndent += opener.indentDelta
@@ -715,7 +713,7 @@ fun processLine(result: MutableResult, line: String) {
     initLine(result, line)
 
     if (result.mode == INDENT_MODE) {
-        result.trackingIndent = ! result.parenStack.empty() &&
+        result.trackingIndent = result.parenStack.isNotEmpty() &&
                                 ! result.isInStr
     }
     else if (result.mode == PAREN_MODE) {
@@ -742,7 +740,7 @@ fun finalizeResult(result: MutableResult) {
         throw ParinferException(result, ERROR_UNCLOSED_QUOTE, UNCLOSED_QUOTE_MSG, null, null)
     }
 
-    if (! result.parenStack.empty()) {
+    if (result.parenStack.isNotEmpty()) {
         if (result.mode == PAREN_MODE) {
             val opener = result.parenStack.peek()
             throw ParinferException(result, ERROR_UNCLOSED_PAREN, UNCLOSED_PAREN_MSG, opener.lineNo, opener.x)
@@ -757,7 +755,7 @@ fun finalizeResult(result: MutableResult) {
 
 // NOTE: processError function not needed due to the type system
 
-fun processText(text: String, options: ParinferOptions?, mode: String) : MutableResult {
+fun processText(text: String, options: ParinferOptions, mode: String) : MutableResult {
     var result = MutableResult(text, mode, options)
 
     try {
@@ -798,15 +796,23 @@ fun parenMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): Pa
 
 /*
 fun main(args: Array<String>) {
-    val result = parenMode("(let [foo 1]\nfoo)", null, null, null)
-    val expectedResult = "(let [foo 1]\n foo)"
+    val result1 = indentMode("(let [a 1])\n  ret)", null, null, null)
+    val result2 = indentMode("(let [a 1])\n  ret)", 10, 0, null)
+    val expectedResult = "(let [a 1]\n  ret)"
 
-    if (result.text == expectedResult) {
+    // println("`````````````````````````")
+    // println(result1.success)
+    // println(result1.text)
+    // println("`````````````````````````")
+    // println(result2.success)
+    // println(result2.text)
+
+    if (result2.text == expectedResult) {
         println("Yay! It worked")
     }
     else {
         println("No bueno :(")
-        println( result.text )
+        println( result2.text )
     }
 }
 */
