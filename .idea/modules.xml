@@ -2,7 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/parinfer-jvm.iml" filepath="$PROJECT_DIR$/parinfer-jvm.iml" />
+      <module fileurl="file://$PROJECT_DIR$/parinfer/parinfer.iml" filepath="$PROJECT_DIR$/parinfer/parinfer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/parinfer-test/parinfer-test.iml" filepath="$PROJECT_DIR$/parinfer-test/parinfer-test.iml" />
     </modules>
   </component>
 </project>

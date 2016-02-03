@@ -58,6 +58,3 @@
 
 (deftest paren-mode-test
   (check-cases :paren paren-mode-cases))
-
-(defn -main [& args]
-  (run-tests 'parinfer-test.core))

@@ -8,8 +8,5 @@
             :distribution "repo"}
 
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.clojure/data.json "0.2.6"]]
-
-  :resource-paths ["lib/parinfer.jar"]
-  :source-paths ["src-clj"]
-  :main parinfer-test.core)
+                 [org.clojure/data.json "0.2.6"]
+                 [com.oakmac/parinfer "1.0-SNAPSHOT"]])

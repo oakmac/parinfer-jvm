@@ -11,10 +11,7 @@
 
 package com.oakmac.parinfer
 
-import java.lang.Math
-import java.util.ArrayList
-import java.util.HashMap
-import java.util.Stack
+import java.util.*
 
 //--------------------------------------------------------------------------------------------------
 // Constants / Predicates
