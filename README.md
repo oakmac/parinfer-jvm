@@ -1,6 +1,6 @@
 # Parinfer on the JVM
 
-A [Parinfer] implementation written for the JVM.
+A [Parinfer] implementation written for the JVM in [Kotlin].
 
 ## About
 
@@ -18,14 +18,18 @@ likely lots of room for improvement here. PR's welcome :)
 
 ## Development Setup
 
-Instal [Kotlin] and [Leiningen].
+Instal [Kotlin](https://kotlinlang.org/docs/tutorials/command-line.html) and [Leiningen].
 
 ```sh
-# compile a parinfer.jar file
-kotlinc src/com/oakmac/parinfer/parinfer.kt -include-runtime -d lib/parinfer.jar
+# run a gradle build
+cd parinfer
+./gradlew install
+```
 
+```sh
 # run the tests
-lein run
+cd parinfer-test
+lein test
 ```
 
 ## Development Wishlist
@@ -45,10 +49,10 @@ lein run
 [ISC License]
 
 [Parinfer]:http://shaunlebron.github.io/parinfer/
+[Kotlin]:https://kotlinlang.org/
 [parinfer.js]:https://github.com/shaunlebron/parinfer/blob/master/lib/parinfer.js
-[tests]:tests/
+[tests]:parinfer-test/tests/
 [main Parinfer repo]:https://github.com/shaunlebron/parinfer/tree/master/lib/test/cases
-[npm]:https://www.npmjs.com/
-[Kotlin]:https://kotlinlang.org/docs/tutorials/command-line.html
 [Leiningen]:http://leiningen.org/
+[npm]:https://www.npmjs.com/
 [ISC License]:LICENSE.md
