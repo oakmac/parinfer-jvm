@@ -9,4 +9,9 @@
 
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/data.json "0.2.6"]
-                 [com.oakmac/parinfer "1.0-SNAPSHOT"]])
+                 [com.oakmac/parinfer "1.0-SNAPSHOT"]
+                 [criterium "0.4.3"]]
+
+  :main paredit.performance
+
+  :profiles {:bench {:jvm-opts ["-server"]}})

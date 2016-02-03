@@ -18,7 +18,7 @@ likely lots of room for improvement here. PR's welcome :)
 
 ## Development Setup
 
-Instal [Kotlin](https://kotlinlang.org/docs/tutorials/command-line.html) and [Leiningen].
+Install [Leiningen].
 
 ```sh
 # run a gradle build
@@ -31,6 +31,13 @@ cd parinfer
 cd parinfer-test
 lein test
 ```
+
+```sh
+# run the benchmarks
+cd parinfer-test
+lein with-profile bench run
+```
+
 
 ## Development Wishlist
 
