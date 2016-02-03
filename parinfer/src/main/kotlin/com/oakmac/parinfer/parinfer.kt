@@ -17,14 +17,7 @@ import java.util.*
 // Constants / Predicates
 //--------------------------------------------------------------------------------------------------
 
-// NOTE: parinfer.js uses a lot of "null or Int" values
-// I thought it would be simpler in a statically-typed language to keep everyting as an Int
-// and use this sentinel value to indicate "null"
-// https://en.wikipedia.org/wiki/Sentinel_value
-val SENTINEL_NULL = -999
-
-val INDENT_MODE = "INDENT_MODE"
-val PAREN_MODE = "PAREN_MODE"
+enum class Mode { INDENT, PAREN }
 
 val BACKSLASH = "\\"
 val BACKSLASH_CHAR = '\\'
@@ -57,46 +50,19 @@ fun isCloseParen(c: String) : Boolean {
 // Class Definitions
 //--------------------------------------------------------------------------------------------------
 
-class ParinferOptions(cursorX: Int?, cursorLine: Int?, cursorDx: Int?) {
-    public var cursorX: Int = SENTINEL_NULL
-    public var cursorLine: Int = SENTINEL_NULL
-    public var cursorDx: Int = SENTINEL_NULL
+class ParinferOptions(var cursorX: Int?, var cursorLine: Int?, var cursorDx: Int?);
 
-    init {
-        if (cursorX != null) {
-            this.cursorX = cursorX
-        }
-        if (cursorLine != null) {
-            this.cursorLine = cursorLine
-        }
-        if (cursorDx != null) {
-            this.cursorDx = cursorDx
-        }
-    }
+enum class Error(val message: String) {
+    QUOTE_DANGER("Quotes must balanced inside comment blocks."),
+    EOL_BACKSLASH("Line cannot end in a hanging backslash."),
+    UNCLOSED_QUOTE("String is missing a closing quote."),
+    UNCLOSED_PAREN("Unmatched open-paren.")
 }
 
-class ParinferException(result: MutableResult, errorName: String, errorMessage: String, lineNo: Int?, x: Int?) : Throwable() {
-    public val name: String = errorName
-    public val description: String = errorMessage
-    public var lineNo: Int = SENTINEL_NULL
-    public var x: Int = SENTINEL_NULL
-
-    init {
-        if (lineNo == null) {
-            this.lineNo = result.errorPosCache[errorName]!!.lineNo
-        }
-        else {
-            this.lineNo = lineNo
-        }
-
-        if (x == null) {
-            this.x = result.errorPosCache[errorName]!!.x
-        }
-        else {
-            this.x = x
-        }
-    }
-}
+class ParinferException(val result: MutableResult,
+                        val error: Error,
+                        val lineNo: Int = result.errorPosCache[error]!!.lineNo,
+                        val x: Int = result.errorPosCache[error]!!.x) : Throwable();
 
 class ErrorPos(val lineNo: Int, val x: Int)
 
@@ -105,9 +71,7 @@ class StackItm(val lineNo: Int,
                val ch: String,
                val indentDelta: Int)
 
-class MutableResult(text: String, mode: String, options: ParinferOptions) {
-    public val mode: String = mode
-
+class MutableResult(text: String, val mode: Mode, options: ParinferOptions) {
     public val origText: String = text
     public var origLines: List<String> = text.split(LINE_ENDING_REGEX)
 
@@ -118,32 +82,32 @@ class MutableResult(text: String, mode: String, options: ParinferOptions) {
 
     public var parenStack: Stack<StackItm> = Stack()
 
-    public var parenTrailLineNo: Int = SENTINEL_NULL
-    public var parenTrailStartX: Int = SENTINEL_NULL
-    public var parenTrailEndX: Int = SENTINEL_NULL
+    public var parenTrailLineNo: Int? = null
+    public var parenTrailStartX: Int? = null
+    public var parenTrailEndX: Int? = null
     public var parenTrailOpeners: Stack<StackItm> = Stack()
 
-    public var cursorX: Int = options.cursorX
-    public var cursorLine: Int = options.cursorLine
-    public var cursorDx: Int = options.cursorDx
+    public var cursorX: Int? = options.cursorX
+    public var cursorLine: Int? = options.cursorLine
+    public var cursorDx: Int? = options.cursorDx
 
     public var isInCode: Boolean = true
     public var isEscaping: Boolean = false
     public var isInStr: Boolean = false
     public var isInComment: Boolean = false
-    public var commentX: Int = SENTINEL_NULL
+    public var commentX: Int? = null
 
     public var quoteDanger: Boolean = false
     public var trackingIndent: Boolean = false
     public var skipChar: Boolean = false
     public var success: Boolean = false
 
-    public var maxIndent: Int = SENTINEL_NULL
+    public var maxIndent: Int? = null
     public var indentDelta: Int = 0
 
     public var error: ParinferException? = null
 
-    public var errorPosCache: HashMap<String, ErrorPos> = HashMap()
+    public var errorPosCache: HashMap<Error, ErrorPos> = HashMap()
 }
 
 class LineDelta(val lineNo: Int, val line: String)
@@ -174,18 +138,8 @@ class ParinferResult(result: MutableResult) {
 // Errors
 //--------------------------------------------------------------------------------------------------
 
-val ERROR_QUOTE_DANGER = "quote-danger"
-val ERROR_EOL_BACKSLASH = "eol-backslash"
-val ERROR_UNCLOSED_QUOTE = "unclosed-quote"
-val ERROR_UNCLOSED_PAREN = "unclosed-paren"
-
-val QUOTE_DANGER_MSG = "Quotes must balanced inside comment blocks."
-val EOL_BACKSLASH_MSG = "Line cannot end in a hanging backslash."
-val UNCLOSED_QUOTE_MSG = "String is missing a closing quote."
-val UNCLOSED_PAREN_MSG = "Unmatched open-paren."
-
-fun cacheErrorPos(result: MutableResult, errorName: String, lineNo: Int, x: Int) {
-    result.errorPosCache[errorName] = ErrorPos(lineNo, x)
+fun cacheErrorPos(result: MutableResult, error: Error, lineNo: Int, x: Int) {
+    result.errorPosCache[error] = ErrorPos(lineNo, x)
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -271,7 +225,7 @@ fun initLine(result: MutableResult, line: String) {
     result.lines.add(line)
 
     // reset line-specific state
-    result.commentX = SENTINEL_NULL
+    result.commentX = null
     result.indentDelta = 0
 }
 
@@ -288,12 +242,12 @@ fun commitChar(result: MutableResult, origCh: String) {
 // Misc Util
 //--------------------------------------------------------------------------------------------------
 
-fun clamp(valN: Int, minN: Int, maxN: Int) : Int {
+fun clamp(valN: Int, minN: Int?, maxN: Int?) : Int {
     var returnN = valN
-    if (minN != SENTINEL_NULL) {
+    if (minN != null) {
         returnN = Math.max(minN, returnN)
     }
-    if (maxN != SENTINEL_NULL) {
+    if (maxN != null) {
         returnN = Math.min(maxN, returnN)
     }
     return returnN
@@ -380,12 +334,12 @@ fun onQuote(result: MutableResult) {
     else if (result.isInComment) {
         result.quoteDanger = ! result.quoteDanger
         if (result.quoteDanger) {
-            cacheErrorPos(result, ERROR_QUOTE_DANGER, result.lineNo, result.x)
+            cacheErrorPos(result, Error.QUOTE_DANGER, result.lineNo, result.x)
         }
     }
     else {
         result.isInStr = true
-        cacheErrorPos(result, ERROR_UNCLOSED_QUOTE, result.lineNo, result.x)
+        cacheErrorPos(result, Error.UNCLOSED_QUOTE, result.lineNo, result.x)
     }
 }
 
@@ -398,7 +352,7 @@ fun afterBackslash(result: MutableResult) {
 
     if (result.ch == NEWLINE) {
         if (result.isInCode) {
-            throw ParinferException(result, ERROR_EOL_BACKSLASH, EOL_BACKSLASH_MSG, result.lineNo, result.x - 1)
+            throw ParinferException(result, Error.EOL_BACKSLASH, result.lineNo, result.x - 1)
         }
         onNewline(result)
     }
@@ -439,16 +393,18 @@ fun onChar(result: MutableResult) {
 //--------------------------------------------------------------------------------------------------
 
 fun isCursorOnLeft(result: MutableResult) : Boolean {
+    val cursorX = result.cursorX
     return result.lineNo == result.cursorLine &&
-           result.cursorX != SENTINEL_NULL &&
-           result.cursorX <= result.x
+           cursorX != null &&
+           cursorX <= result.x
 }
 
-fun isCursorOnRight(result: MutableResult, x: Int) : Boolean {
+fun isCursorOnRight(result: MutableResult, x: Int?) : Boolean {
+    val cursorX = result.cursorX
     return result.lineNo == result.cursorLine &&
-           result.cursorX != SENTINEL_NULL &&
-           x != SENTINEL_NULL &&
-           result.cursorX > x
+           cursorX != null &&
+           x != null &&
+           cursorX > x
 }
 
 fun isCursorInComment(result: MutableResult) : Boolean {
@@ -456,12 +412,15 @@ fun isCursorInComment(result: MutableResult) : Boolean {
 }
 
 fun handleCursorDelta(result: MutableResult) {
-    val hasCursorDelta = result.cursorDx != SENTINEL_NULL &&
-                         result.cursorLine == result.lineNo &&
-                         result.cursorX == result.x
+    val indentDelta = result.indentDelta
+    val cursorDx = result.cursorDx
 
-    if (hasCursorDelta) {
-        result.indentDelta = result.indentDelta + result.cursorDx
+    if (cursorDx != null) {
+        val hasCursorDelta = result.cursorLine == result.lineNo && result.cursorX == result.x
+
+        if (hasCursorDelta) {
+            result.indentDelta = indentDelta + cursorDx
+        }
     }
 }
 
@@ -486,7 +445,7 @@ fun updateParenTrailBounds(result: MutableResult) {
         result.parenTrailStartX = result.x + 1
         result.parenTrailEndX = result.x + 1
         result.parenTrailOpeners.clear()
-        result.maxIndent = SENTINEL_NULL
+        result.maxIndent = null
     }
 }
 
@@ -498,8 +457,9 @@ fun clampParenTrailToCursor(result: MutableResult) {
                            !isCursorInComment(result)
 
     if (isCursorClamping) {
-        val newStartX = Math.max(startX, result.cursorX)
-        val newEndX = Math.max(endX, result.cursorX)
+        val cursorX = result.cursorX as Int // TODO is this never null here?
+        val newStartX = Math.max(startX as Int, cursorX)
+        val newEndX = Math.max(endX as Int, cursorX)
 
         val line = result.lines[result.lineNo]
         var removeCount = 0
@@ -522,8 +482,8 @@ fun clampParenTrailToCursor(result: MutableResult) {
 }
 
 fun removeParenTrail(result: MutableResult) {
-    val startX = result.parenTrailStartX
-    val endX = result.parenTrailEndX
+    val startX = result.parenTrailStartX as Int
+    val endX = result.parenTrailEndX as Int
 
     if (startX == endX) {
         return
@@ -550,12 +510,12 @@ fun correctParenTrail(result: MutableResult, indentX: Int) {
         }
     }
 
-    insertWithinLine(result, result.parenTrailLineNo, result.parenTrailStartX, parens)
+    insertWithinLine(result, result.parenTrailLineNo as Int, result.parenTrailStartX as Int, parens)
 }
 
 fun cleanParenTrail(result: MutableResult) {
-    val startX = result.parenTrailStartX
-    val endX = result.parenTrailEndX
+    val startX = result.parenTrailStartX as Int
+    val endX = result.parenTrailEndX as Int
 
     if (startX == endX || result.lineNo != result.parenTrailLineNo) {
         return
@@ -577,7 +537,7 @@ fun cleanParenTrail(result: MutableResult) {
 
     if (spaceCount > 0) {
         replaceWithinLine(result, result.lineNo, startX, endX, newTrail)
-        result.parenTrailEndX -= spaceCount
+        result.parenTrailEndX = endX - spaceCount
     }
 }
 
@@ -586,16 +546,19 @@ fun appendParenTrail(result: MutableResult) {
     val closeCh = PARENS[opener.ch].toString()
 
     result.maxIndent = opener.x
-    insertWithinLine(result, result.parenTrailLineNo, result.parenTrailEndX, closeCh)
-    result.parenTrailEndX++
+    val endX = result.parenTrailEndX
+    if (endX != null) {
+        insertWithinLine(result, result.parenTrailLineNo as Int, endX, closeCh)
+        result.parenTrailEndX = endX + 1
+    }
 }
 
 fun finishNewParenTrail(result: MutableResult) {
-    if (result.mode == INDENT_MODE) {
+    if (result.mode == Mode.INDENT) {
         clampParenTrailToCursor(result)
         removeParenTrail(result)
     }
-    else if (result.mode == PAREN_MODE) {
+    else if (result.mode == Mode.PAREN) {
         if (result.lineNo != result.cursorLine) {
             cleanParenTrail(result)
         }
@@ -632,13 +595,13 @@ fun onProperIndent(result: MutableResult) {
     result.trackingIndent = false
 
     if (result.quoteDanger) {
-        throw ParinferException(result, ERROR_QUOTE_DANGER, QUOTE_DANGER_MSG, null, null)
+        throw ParinferException(result, Error.QUOTE_DANGER)
     }
 
-    if (result.mode == INDENT_MODE) {
+    if (result.mode == Mode.INDENT) {
         correctParenTrail(result, result.x)
     }
-    else if (result.mode == PAREN_MODE) {
+    else if (result.mode == Mode.PAREN) {
         correctIndent(result)
     }
 }
@@ -647,7 +610,7 @@ fun onLeadingCloseParen(result: MutableResult) {
     result.skipChar = true
     result.trackingIndent = true
 
-    if (result.mode == PAREN_MODE) {
+    if (result.mode == Mode.PAREN) {
         if (isValidCloseParen(result.parenStack, result.ch)) {
             if (isCursorOnLeft(result)) {
                 result.skipChar = false
@@ -683,7 +646,7 @@ fun processChar(result: MutableResult, ch: String) {
     result.ch = ch
     result.skipChar = false
 
-    if (result.mode == PAREN_MODE) {
+    if (result.mode == Mode.PAREN) {
         handleCursorDelta(result)
     }
 
@@ -705,11 +668,11 @@ fun processChar(result: MutableResult, ch: String) {
 fun processLine(result: MutableResult, line: String) {
     initLine(result, line)
 
-    if (result.mode == INDENT_MODE) {
+    if (result.mode == Mode.INDENT) {
         result.trackingIndent = result.parenStack.isNotEmpty() &&
                                 ! result.isInStr
     }
-    else if (result.mode == PAREN_MODE) {
+    else if (result.mode == Mode.PAREN) {
         result.trackingIndent = ! result.isInStr
     }
 
@@ -727,18 +690,18 @@ fun processLine(result: MutableResult, line: String) {
 
 fun finalizeResult(result: MutableResult) {
     if (result.quoteDanger) {
-        throw ParinferException(result, ERROR_QUOTE_DANGER, QUOTE_DANGER_MSG, null, null)
+        throw ParinferException(result, Error.QUOTE_DANGER)
     }
     if (result.isInStr) {
-        throw ParinferException(result, ERROR_UNCLOSED_QUOTE, UNCLOSED_QUOTE_MSG, null, null)
+        throw ParinferException(result, Error.UNCLOSED_QUOTE)
     }
 
     if (result.parenStack.isNotEmpty()) {
-        if (result.mode == PAREN_MODE) {
+        if (result.mode == Mode.PAREN) {
             val opener = result.parenStack.peek()
-            throw ParinferException(result, ERROR_UNCLOSED_PAREN, UNCLOSED_PAREN_MSG, opener.lineNo, opener.x)
+            throw ParinferException(result, Error.UNCLOSED_PAREN, opener.lineNo, opener.x)
         }
-        else if (result.mode == INDENT_MODE) {
+        else if (result.mode == Mode.INDENT) {
             correctParenTrail(result, 0)
         }
     }
@@ -748,7 +711,7 @@ fun finalizeResult(result: MutableResult) {
 
 // NOTE: processError function not needed due to the type system
 
-fun processText(text: String, options: ParinferOptions, mode: String) : MutableResult {
+fun processText(text: String, options: ParinferOptions, mode: Mode) : MutableResult {
     var result = MutableResult(text, mode, options)
 
     try {
@@ -773,12 +736,12 @@ fun processText(text: String, options: ParinferOptions, mode: String) : MutableR
 
 fun indentMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): ParinferResult {
     val options = ParinferOptions(cursorX, cursorLine, cursorDx)
-    val result = processText(text, options, INDENT_MODE)
+    val result = processText(text, options, Mode.INDENT)
     return ParinferResult(result)
 }
 
 fun parenMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): ParinferResult {
     val options = ParinferOptions(cursorX, cursorLine, cursorDx)
-    val result = processText(text, options, PAREN_MODE)
+    val result = processText(text, options, Mode.PAREN)
     return ParinferResult(result)
 }
