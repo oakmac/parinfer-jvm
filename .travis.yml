@@ -1,0 +1,5 @@
+language: java
+install:
+  - pushd parinfer; ./gradlew install; popd
+script:
+  - pushd parinfer-test; lein test; popd
