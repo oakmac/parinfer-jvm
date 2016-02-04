@@ -28,8 +28,6 @@ val NEWLINE = "\n"
 val SEMICOLON = ";"
 val TAB = "\t"
 
-val LINE_ENDING_REGEX = "\\r?\\n".toRegex()
-
 val PARENS = hashMapOf(
     "{" to "}",
     "}" to "{",
@@ -73,7 +71,7 @@ class StackItm(val lineNo: Int,
 
 class MutableResult(text: String, val mode: Mode, options: ParinferOptions) {
     public val origText: String = text
-    public var origLines: List<String> = text.split(LINE_ENDING_REGEX)
+    public var origLines: List<String> = text.lines()
 
     public var lines: ArrayList<String> = arrayListOf()
     public var lineNo: Int = -1
@@ -122,7 +120,7 @@ class ParinferResult(result: MutableResult) {
     init {
         if (result.success) {
             val lineEnding = getLineEnding(result.origText)
-            this.text = poorMansJoin(result.lines, lineEnding)
+            this.text = result.lines.joinToString(lineEnding)
             this.success = true
             this.changedLines = getChangedLines(result)
         }
@@ -156,26 +154,6 @@ fun insertWithinString(orig: String, idx: Int, insert: String) : String {
     return head + insert + tail
 }
 
-fun replaceWithinString(orig: String, start: Int, end: Int, replace: String) : String {
-    var head = orig.substring(0, start)
-    var tail = ""
-    if (end < orig.length) {
-        tail = orig.substring(end, orig.length)
-    }
-
-    return head + replace + tail
-}
-
-fun repeatString(text: String, n: Int) : String {
-    var i = 0
-    var result = ""
-    while (i < n) {
-        result += text
-        i++
-    }
-    return result
-}
-
 // NOTE: We assume that if the CR char "\r" is used anywhere,
 //       then we should use CRLF line-endings after every line.
 fun getLineEnding(text: String) : String {
@@ -184,18 +162,6 @@ fun getLineEnding(text: String) : String {
         return "\r\n"
     }
     return "\n"
-}
-
-fun poorMansJoin(arr: ArrayList<String>, lf: String) : String {
-    var theStr = ""
-    var i = 0
-    while (i < arr.size) {
-        theStr += arr[i] + lf
-        i++
-    }
-
-    // remove the last newline character
-    return theStr.substring(0, theStr.length - 1)
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -209,7 +175,11 @@ fun insertWithinLine(result: MutableResult, lineNo: Int, idx: Int, insert: Strin
 
 fun replaceWithinLine(result: MutableResult, lineNo: Int, start: Int, end: Int, replace: String) {
     val line = result.lines[lineNo]
-    result.lines[lineNo] = replaceWithinString(line, start, end, replace)
+    if (end < line.length) {
+        result.lines[lineNo] = line.replaceRange(start, end, replace)
+    } else {
+        result.lines[lineNo] = line.substring(0, start) + replace
+    }
 }
 
 fun removeWithinLine(result: MutableResult, lineNo: Int, start: Int, end: Int) {
@@ -543,7 +513,7 @@ fun cleanParenTrail(result: MutableResult) {
 
 fun appendParenTrail(result: MutableResult) {
     val opener = result.parenStack.pop()
-    val closeCh = PARENS[opener.ch].toString()
+    val closeCh = PARENS[opener.ch] as String
 
     result.maxIndent = opener.x
     val endX = result.parenTrailEndX
@@ -584,7 +554,7 @@ fun correctIndent(result: MutableResult) {
     newIndent = clamp(newIndent, minIndent, maxIndent)
 
     if (newIndent != origIndent) {
-        var indentStr = repeatString(BLANK_SPACE, newIndent)
+        var indentStr = " ".repeat(newIndent)
         replaceWithinLine(result, result.lineNo, 0, origIndent, indentStr)
         result.x = newIndent
         result.indentDelta += (newIndent - origIndent)
