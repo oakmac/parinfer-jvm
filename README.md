@@ -1,4 +1,4 @@
-# Parinfer on the JVM
+# Parinfer on the JVM [![Build Status](https://travis-ci.org/oakmac/parinfer-jvm.svg?branch=master)](https://travis-ci.org/oakmac/parinfer-jvm)
 
 A [Parinfer] implementation written for the JVM in [Kotlin].
 

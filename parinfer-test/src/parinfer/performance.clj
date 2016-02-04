@@ -1,4 +1,4 @@
-(ns paredit.performance
+(ns parinfer.performance
   (:require [criterium.core :as perf])
   (:import (com.oakmac.parinfer ParinferKt)))
 

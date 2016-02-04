@@ -12,6 +12,6 @@
                  [com.oakmac/parinfer "1.0-SNAPSHOT"]
                  [criterium "0.4.3"]]
 
-  :main paredit.performance
+  :main parinfer.performance
 
   :profiles {:bench {:jvm-opts ["-server"]}})
