@@ -8,10 +8,12 @@
 /parinfer/build
 /parinfer/.gradle
 /parinfer/local.properties
+/parinfer/parinfer.iml
 
 /parinfer-test/target/
 /parinfer-test/.lein-repl-history
 /parinfer-test/.lein-failures
+/parinfer-test/parinfer-test.iml
 
 ## ignore diff files
 *.diff
