@@ -1,10 +1,10 @@
 (ns parinfer-test.core
-  (:import [com.oakmac.parinfer ParinferKt])
   (:require
     [clojure.data.json :as json]
     [clojure.string :refer [join]]
     [clojure.test :refer [deftest is run-tests]]
-    [clojure.walk :refer [keywordize-keys]]))
+    [clojure.walk :refer [keywordize-keys]])
+  (:import (com.oakmac.parinfer Parinfer)))
 
 ;; load test cases
 (def indent-mode-cases (-> "tests/indent-mode.json" slurp json/read-str keywordize-keys))
@@ -14,13 +14,13 @@
   "Wrapper around ParinferKt/indentMode
    Returns only the result text"
   [txt cursor-x cursor-line cursor-dx]
-  (.-text (ParinferKt/indentMode txt cursor-x cursor-line cursor-dx)))
+  (.-text (Parinfer/indentMode txt cursor-x cursor-line cursor-dx)))
 
 (defn- paren-mode
   "Wrapper around ParinferKt/parenMode
    Returns only the result text"
   [txt cursor-x cursor-line cursor-dx]
-  (.-text (ParinferKt/parenMode txt cursor-x cursor-line cursor-dx)))
+  (.-text (Parinfer/parenMode txt cursor-x cursor-line cursor-dx)))
 
 (defn- check-cases
   [mode test-cases]

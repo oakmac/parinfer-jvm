@@ -9,6 +9,7 @@
 // Released under the ISC license
 // https://github.com/oakmac/parinfer-jvm/blob/master/LICENSE.md
 
+@file:JvmName("Parinfer")
 package com.oakmac.parinfer
 
 import java.util.*
@@ -70,52 +71,52 @@ class StackItm(val lineNo: Int,
                val indentDelta: Int)
 
 class MutableResult(text: String, val mode: Mode, options: ParinferOptions) {
-    public val origText: String = text
-    public var origLines: List<String> = text.lines()
+    val origText: String = text
+    var origLines: List<String> = text.lines()
 
-    public var lines: ArrayList<String> = arrayListOf()
-    public var lineNo: Int = -1
-    public var ch: String = ""
-    public var x: Int = 0
+    var lines: ArrayList<String> = arrayListOf()
+    var lineNo: Int = -1
+    var ch: String = ""
+    var x: Int = 0
 
-    public var parenStack: Stack<StackItm> = Stack()
+    var parenStack: Stack<StackItm> = Stack()
 
-    public var parenTrailLineNo: Int? = null
-    public var parenTrailStartX: Int? = null
-    public var parenTrailEndX: Int? = null
-    public var parenTrailOpeners: Stack<StackItm> = Stack()
+    var parenTrailLineNo: Int? = null
+    var parenTrailStartX: Int? = null
+    var parenTrailEndX: Int? = null
+    var parenTrailOpeners: Stack<StackItm> = Stack()
 
-    public var cursorX: Int? = options.cursorX
-    public var cursorLine: Int? = options.cursorLine
-    public var cursorDx: Int? = options.cursorDx
+    var cursorX: Int? = options.cursorX
+    var cursorLine: Int? = options.cursorLine
+    var cursorDx: Int? = options.cursorDx
 
-    public var isInCode: Boolean = true
-    public var isEscaping: Boolean = false
-    public var isInStr: Boolean = false
-    public var isInComment: Boolean = false
-    public var commentX: Int? = null
+    var isInCode: Boolean = true
+    var isEscaping: Boolean = false
+    var isInStr: Boolean = false
+    var isInComment: Boolean = false
+    var commentX: Int? = null
 
-    public var quoteDanger: Boolean = false
-    public var trackingIndent: Boolean = false
-    public var skipChar: Boolean = false
-    public var success: Boolean = false
+    var quoteDanger: Boolean = false
+    var trackingIndent: Boolean = false
+    var skipChar: Boolean = false
+    var success: Boolean = false
 
-    public var maxIndent: Int? = null
-    public var indentDelta: Int = 0
+    var maxIndent: Int? = null
+    var indentDelta: Int = 0
 
-    public var error: ParinferException? = null
+    var error: ParinferException? = null
 
-    public var errorPosCache: HashMap<Error, ErrorPos> = HashMap()
+    var errorPosCache: HashMap<Error, ErrorPos> = HashMap()
 }
 
 class LineDelta(val lineNo: Int, val line: String)
 
 // NOTE: this is the "public result" class
 class ParinferResult(result: MutableResult) {
-    @JvmField public var text: String = ""
-    @JvmField public var success: Boolean = true
-    @JvmField public var error: ParinferException? = null
-    @JvmField public var changedLines: ArrayList<LineDelta>? = null
+    @JvmField var text: String = ""
+    @JvmField var success: Boolean = true
+    @JvmField var error: ParinferException? = null
+    @JvmField var changedLines: ArrayList<LineDelta>? = null
 
     init {
         if (result.success) {
