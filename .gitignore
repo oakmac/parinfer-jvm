@@ -5,15 +5,12 @@
 /.idea/libraries
 /.idea/inspectionProfiles
 
-/parinfer/build
-/parinfer/.gradle
-/parinfer/local.properties
-/parinfer/parinfer.iml
+/build
+/.gradle
+/local.properties
 
-/parinfer-test/target/
-/parinfer-test/.lein-repl-history
-/parinfer-test/.lein-failures
-/parinfer-test/parinfer-test.iml
+## ignore module files
+*.iml
 
 ## ignore diff files
 *.diff
