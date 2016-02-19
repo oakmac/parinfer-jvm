@@ -1,5 +1,6 @@
-(ns parinfer.performance
-  (:require [criterium.core :as perf])
+(ns parinfer-test.performance
+  (:require [criterium.core :as perf]
+            [clojure.test :refer [deftest is run-tests]])
   (:import (com.oakmac.parinfer Parinfer)))
 
 (defn benchmark-large-file []
@@ -7,5 +8,5 @@
     (perf/bench (Parinfer/indentMode lots-o-clojure nil nil nil))
     (perf/bench (Parinfer/parenMode lots-o-clojure nil nil nil))))
 
-(defn -main [& args]
+(deftest performance-tests
   (benchmark-large-file))
