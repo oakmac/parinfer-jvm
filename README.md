@@ -18,26 +18,27 @@ likely lots of room for improvement here. PR's welcome :)
 
 ## Development Setup
 
-Install [Leiningen].
-
 ```sh
 # run a gradle build, and install the artifact in your local repo
-cd parinfer
 ./gradlew install
 ```
 
 ```sh
 # run the tests
-cd parinfer-test
+./gradlew clean clojureTest
 lein test
 ```
 
-```sh
-# run the benchmarks
-cd parinfer-test
-lein with-profile bench run
+To run the performance benchmarks, comment out the following block in `build.gradle`:
+
+```groovy
+sourceSets.test.clojure {
+  excludeNamespace 'parinfer-test.performance'
+}
 ```
 
+Then run the tests as above. There is probably a better way to do this, but it's way
+beyond my Gradle-fu. PR welcome!
 
 ## Development Wishlist
 
