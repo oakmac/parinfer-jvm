@@ -72,6 +72,7 @@ class StackItm(val lineNo: Int,
 
 class MutableResult(text: String, val mode: Mode, options: ParinferOptions) {
     val origText: String = text
+    val origCursorX: Int? = options.cursorX
     var origLines: List<String> = text.lines()
 
     var lines: ArrayList<String> = arrayListOf()
@@ -115,6 +116,7 @@ class LineDelta(val lineNo: Int, val line: String)
 class ParinferResult(result: MutableResult) {
     @JvmField var text: String = ""
     @JvmField var success: Boolean = true
+    @JvmField var cursorX: Int?
     @JvmField var error: ParinferException? = null
     @JvmField var changedLines: ArrayList<LineDelta>? = null
 
@@ -122,11 +124,13 @@ class ParinferResult(result: MutableResult) {
         if (result.success) {
             val lineEnding = getLineEnding(result.origText)
             this.text = result.lines.joinToString(lineEnding)
+            this.cursorX = result.cursorX
             this.success = true
             this.changedLines = getChangedLines(result)
         }
         else {
             this.text = result.origText
+            this.cursorX = result.origCursorX
             this.success = false
             this.error = result.error
         }
@@ -145,16 +149,6 @@ fun cacheErrorPos(result: MutableResult, error: Error, lineNo: Int, x: Int) {
 // String Operations
 //--------------------------------------------------------------------------------------------------
 
-fun insertWithinString(orig: String, idx: Int, insert: String) : String {
-    if (insert == "") {
-        return orig
-    }
-
-    val head = orig.substring(0, idx)
-    var tail = orig.substring(idx, orig.length)
-    return head + insert + tail
-}
-
 // NOTE: We assume that if the CR char "\r" is used anywhere,
 //       then we should use CRLF line-endings after every line.
 fun getLineEnding(text: String) : String {
@@ -169,25 +163,42 @@ fun getLineEnding(text: String) : String {
 // Line operations
 //--------------------------------------------------------------------------------------------------
 
-fun insertWithinLine(result: MutableResult, lineNo: Int, idx: Int, insert: String) {
-    val line = result.lines[lineNo]
-    result.lines[lineNo] = insertWithinString(line, idx, insert)
+fun isCursorAffected(result: MutableResult, start: Int, end: Int): Boolean {
+    val cursorX = result.cursorX ?: return false
+    if (cursorX === start &&
+        cursorX === end) {
+        return cursorX === 0;
+    }
+    return cursorX >= end;
+}
+
+fun shiftCursorOnEdit(result: MutableResult, lineNo: Int, start: Int, end: Int, replace: String) {
+    var oldLength = end - start;
+    var newLength = replace.length;
+    var dx = newLength - oldLength;
+
+    val cursorX = result.cursorX
+    if (dx !== 0 &&
+        result.cursorLine === lineNo &&
+        cursorX !== null &&
+        isCursorAffected(result, start, end)) {
+        result.cursorX = cursorX + dx;
+    }
 }
 
 fun replaceWithinLine(result: MutableResult, lineNo: Int, start: Int, end: Int, replace: String) {
-    val line = result.lines[lineNo]
+    var line = result.lines[lineNo];
     if (end < line.length) {
         result.lines[lineNo] = line.replaceRange(start, end, replace)
     } else {
         result.lines[lineNo] = line.substring(0, start) + replace
     }
+
+    shiftCursorOnEdit(result, lineNo, start, end, replace);
 }
 
-fun removeWithinLine(result: MutableResult, lineNo: Int, start: Int, end: Int) {
-    val line = result.lines[lineNo]
-    if (start != end) {
-        result.lines[lineNo] = line.removeRange(start, end)
-    }
+fun insertWithinLine(result: MutableResult, lineNo: Int, idx: Int, insert: String) {
+    replaceWithinLine(result, lineNo, idx, idx, insert);
 }
 
 fun initLine(result: MutableResult, line: String) {
@@ -452,7 +463,7 @@ fun clampParenTrailToCursor(result: MutableResult) {
     }
 }
 
-fun removeParenTrail(result: MutableResult) {
+fun popParenTrail(result: MutableResult) {
     val startX = result.parenTrailStartX as Int
     val endX = result.parenTrailEndX as Int
 
@@ -463,8 +474,6 @@ fun removeParenTrail(result: MutableResult) {
     while (result.parenTrailOpeners.isNotEmpty()) {
         result.parenStack.push(result.parenTrailOpeners.pop())
     }
-
-    removeWithinLine(result, result.lineNo, startX, endX)
 }
 
 fun correctParenTrail(result: MutableResult, indentX: Int) {
@@ -481,7 +490,7 @@ fun correctParenTrail(result: MutableResult, indentX: Int) {
         }
     }
 
-    insertWithinLine(result, result.parenTrailLineNo as Int, result.parenTrailStartX as Int, parens)
+    replaceWithinLine(result, result.parenTrailLineNo as Int, result.parenTrailStartX as Int, result.parenTrailEndX as Int, parens)
 }
 
 fun cleanParenTrail(result: MutableResult) {
@@ -527,7 +536,7 @@ fun appendParenTrail(result: MutableResult) {
 fun finishNewParenTrail(result: MutableResult) {
     if (result.mode == Mode.INDENT) {
         clampParenTrailToCursor(result)
-        removeParenTrail(result)
+        popParenTrail(result)
     }
     else if (result.mode == Mode.PAREN) {
         if (result.lineNo != result.cursorLine) {
