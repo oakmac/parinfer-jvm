@@ -1,3 +1,7 @@
+## 0.3.0 - 2016-02-26
+* Tests are now run using Gradle.
+* Parinfer-JVM now tracks Parinfer 1.6.1.
+
 ## 0.2.0 - 2016-02-19
 * Parinfer is now built using Gradle.
 * Many performance enhancements.
