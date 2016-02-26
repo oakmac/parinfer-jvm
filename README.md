@@ -26,7 +26,6 @@ likely lots of room for improvement here. PR's welcome :)
 ```sh
 # run the tests
 ./gradlew clean clojureTest
-lein test
 ```
 
 To run the performance benchmarks, comment out the following block in `build.gradle`:
