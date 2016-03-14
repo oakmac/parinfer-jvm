@@ -1,5 +1,5 @@
 // parinfer-jvm - a Parinfer implementation for the JVM
-// v0.1.0
+// v0.4.0
 // https://github.com/oakmac/parinfer-jvm
 //
 // More information about Parinfer can be found here:
@@ -29,6 +29,8 @@ val NEWLINE = "\n"
 val SEMICOLON = ";"
 val TAB = "\t"
 
+val STANDALONE_PAREN_TRAIL = "^[\\s\\]\\)\\}]*(;.*)?$".toRegex()
+
 val PARENS = hashMapOf(
     "{" to "}",
     "}" to "{",
@@ -49,7 +51,7 @@ fun isCloseParen(c: String) : Boolean {
 // Class Definitions
 //--------------------------------------------------------------------------------------------------
 
-class ParinferOptions(var cursorX: Int?, var cursorLine: Int?, var cursorDx: Int?);
+class ParinferOptions(var cursorX: Int?, var cursorLine: Int?, var cursorDx: Int?, var previewCursorScope: Boolean);
 
 enum class Error(val message: String) {
     QUOTE_DANGER("Quotes must balanced inside comment blocks."),
@@ -90,6 +92,8 @@ class MutableResult(text: String, val mode: Mode, options: ParinferOptions) {
     var cursorX: Int? = options.cursorX
     var cursorLine: Int? = options.cursorLine
     var cursorDx: Int? = options.cursorDx
+    val previewCursorScope: Boolean = options.previewCursorScope
+    var canPreviewCursorScope: Boolean = false
 
     var isInCode: Boolean = true
     var isEscaping: Boolean = false
@@ -134,6 +138,10 @@ class ParinferResult(result: MutableResult) {
             this.success = false
             this.error = result.error
         }
+    }
+
+    override fun toString(): String{
+        return "ParinferResult(text='$text', cursorX=$cursorX, success=$success)"
     }
 }
 
@@ -410,6 +418,14 @@ fun handleCursorDelta(result: MutableResult) {
 // Paren Trail functions
 //--------------------------------------------------------------------------------------------------
 
+fun resetParenTrail(result: MutableResult, lineNo: Int, x: Int) {
+    result.parenTrailLineNo = lineNo
+    result.parenTrailStartX = x
+    result.parenTrailEndX = x
+    result.parenTrailOpeners.clear()
+    result.maxIndent = null
+}
+
 fun updateParenTrailBounds(result: MutableResult) {
     val line = result.lines[result.lineNo]
     val ch = result.ch
@@ -423,11 +439,7 @@ fun updateParenTrailBounds(result: MutableResult) {
                       ch != DOUBLE_SPACE
 
     if (shouldReset) {
-        result.parenTrailLineNo = result.lineNo
-        result.parenTrailStartX = result.x + 1
-        result.parenTrailEndX = result.x + 1
-        result.parenTrailOpeners.clear()
-        result.maxIndent = null
+        resetParenTrail(result, result.lineNo, result.x + 1)
     }
 }
 
@@ -571,7 +583,25 @@ fun correctIndent(result: MutableResult) {
     }
 }
 
-fun onProperIndent(result: MutableResult) {
+fun tryPreviewCursorScope(result: MutableResult) {
+    if (result.canPreviewCursorScope) {
+        // If the cursor is to the right of current indentation point we can show
+        // scope by adding close-parens to the cursor.
+        // (i.e. close-parens may be safely moved from the previous Paren Trail to
+        // a new Paren Trail at the cursor since there are no tokens between them.)
+        val cursorX = result.cursorX
+        val cursorLine = result.cursorLine
+        if (cursorX != null && cursorLine != null) {
+            if (cursorX > result.x) {
+                correctParenTrail(result, cursorX);
+                resetParenTrail(result, cursorLine, cursorX);
+            }
+        }
+        result.canPreviewCursorScope = false;
+    }
+}
+
+fun onIndent(result: MutableResult) {
     result.trackingIndent = false
 
     if (result.quoteDanger) {
@@ -579,6 +609,7 @@ fun onProperIndent(result: MutableResult) {
     }
 
     if (result.mode == Mode.INDENT) {
+        tryPreviewCursorScope(result)
         correctParenTrail(result, result.x)
     }
     else if (result.mode == Mode.PAREN) {
@@ -588,13 +619,12 @@ fun onProperIndent(result: MutableResult) {
 
 fun onLeadingCloseParen(result: MutableResult) {
     result.skipChar = true
-    result.trackingIndent = true
 
     if (result.mode == Mode.PAREN) {
         if (isValidCloseParen(result.parenStack, result.ch)) {
             if (isCursorOnLeft(result)) {
                 result.skipChar = false
-                onProperIndent(result)
+                onIndent(result)
             }
             else {
                 appendParenTrail(result)
@@ -603,7 +633,7 @@ fun onLeadingCloseParen(result: MutableResult) {
     }
 }
 
-fun onIndent(result: MutableResult) {
+fun checkIndent(result: MutableResult) {
     if (isCloseParen(result.ch)) {
         onLeadingCloseParen(result)
     }
@@ -611,8 +641,32 @@ fun onIndent(result: MutableResult) {
         // comments don't count as indentation points
         result.trackingIndent = false
     }
-    else if (result.ch != NEWLINE) {
-        onProperIndent(result)
+    else if (result.ch != NEWLINE &&
+             result.ch !== BLANK_SPACE &&
+             result.ch !== TAB) {
+        onIndent(result)
+    }
+}
+
+fun initPreviewCursorScope(result: MutableResult) {
+    if (result.previewCursorScope && result.cursorLine == result.lineNo) {
+        var semicolonX = result.lines[result.lineNo].indexOf(";");
+        val cursorX = result.cursorX
+        result.canPreviewCursorScope = (result.trackingIndent &&
+                                        STANDALONE_PAREN_TRAIL.matches(result.lines[result.lineNo]) &&
+                                        (semicolonX == -1 || (cursorX != null && cursorX <= semicolonX)));
+    }
+}
+
+fun initIndent(result: MutableResult) {
+    if (result.mode == Mode.INDENT) {
+        result.trackingIndent = (result.parenStack.isNotEmpty() &&
+                                 !result.isInStr);
+
+        initPreviewCursorScope(result);
+    }
+    else if (result.mode === Mode.PAREN) {
+        result.trackingIndent = !result.isInStr;
     }
 }
 
@@ -631,7 +685,7 @@ fun processChar(result: MutableResult, ch: String) {
     }
 
     if (result.trackingIndent && ch != BLANK_SPACE && ch != TAB) {
-        onIndent(result)
+        checkIndent(result)
     }
 
     if (result.skipChar) {
@@ -647,14 +701,7 @@ fun processChar(result: MutableResult, ch: String) {
 
 fun processLine(result: MutableResult, line: String) {
     initLine(result, line)
-
-    if (result.mode == Mode.INDENT) {
-        result.trackingIndent = result.parenStack.isNotEmpty() &&
-                                ! result.isInStr
-    }
-    else if (result.mode == Mode.PAREN) {
-        result.trackingIndent = ! result.isInStr
-    }
+    initIndent(result)
 
     var i = 0
     val chars = line + NEWLINE
@@ -682,7 +729,8 @@ fun finalizeResult(result: MutableResult) {
             throw ParinferException(result, Error.UNCLOSED_PAREN, opener.lineNo, opener.x)
         }
         else if (result.mode == Mode.INDENT) {
-            correctParenTrail(result, 0)
+            result.x = 0
+            onIndent(result)
         }
     }
 
@@ -714,14 +762,14 @@ fun processText(text: String, options: ParinferOptions, mode: Mode) : MutableRes
 // Public API
 //--------------------------------------------------------------------------------------------------
 
-fun indentMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): ParinferResult {
-    val options = ParinferOptions(cursorX, cursorLine, cursorDx)
+fun indentMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?, previewCursorScope: Boolean): ParinferResult {
+    val options = ParinferOptions(cursorX, cursorLine, cursorDx, previewCursorScope)
     val result = processText(text, options, Mode.INDENT)
     return ParinferResult(result)
 }
 
-fun parenMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?): ParinferResult {
-    val options = ParinferOptions(cursorX, cursorLine, cursorDx)
+fun parenMode(text: String, cursorX: Int?, cursorLine: Int?, cursorDx: Int?, previewCursorScope: Boolean): ParinferResult {
+    val options = ParinferOptions(cursorX, cursorLine, cursorDx, previewCursorScope)
     val result = processText(text, options, Mode.PAREN)
     return ParinferResult(result)
 }
