@@ -49,18 +49,20 @@
 (defn- check-cases
   [mode test-cases]
   (doseq [test test-cases]
-    (let [test-id (get-in test [:in :fileLineNo])
-          in-text (join "\n" (get-in test [:in :lines]))
-          expected-text (join "\n" (get-in test [:out :lines]))
+    (let [test-id (get-in test [:source :lineNo])
+          in-text (get-in test [:text])
+          expected-text (get-in test [:result :text])
 
-          cursor-x (get-in test [:in :cursor :cursorX])
-          cursor-line (get-in test [:in :cursor :cursorLine])
-          cursor-dx (get-in test [:in :cursor :cursorDx])
-          preview-cursor-scope (or (get-in test [:in :cursor :previewCursorScope]) false)
+          cursor-x (get-in test [:options :cursorX])
+          cursor-line (get-in test [:options :cursorLine])
 
-          error {:name (get-in test [:out :error :name])
-                 :line (get-in test [:out :error :lineNo])
-                 :x    (get-in test [:out :error :x])}
+          ;; TODO: cursorDx and previewCursorScope appear to be deprecated
+          cursor-dx (get-in test [:result :cursorDx])
+          preview-cursor-scope (or (get-in test [:result :previewCursorScope]) false)
+
+          error {:name (get-in test [:result :error :name])
+                 :line (get-in test [:result :error :lineNo])
+                 :x    (get-in test [:result :error :x])}
 
           result ^ParinferResult (if (= mode :indent)
                                    (indent-mode in-text cursor-x cursor-line cursor-dx preview-cursor-scope)
@@ -70,7 +72,7 @@
                     (indent-mode (result-text result) cursor-x cursor-line cursor-dx preview-cursor-scope)
                     (paren-mode (result-text result) cursor-x cursor-line cursor-dx preview-cursor-scope))]
       (is (= (result-text result) expected-text) (str "in/out text: test id " test-id))
-      (when-let [x (get-in test [:out :cursor :cursorX])]
+      (when-let [x (get-in test [:result :cursorX])]
         (is (= x (result-x result)) (str "cursorX: test id " test-id)))
       (if-let [e (result-error result)]
         (is (= e error) (str "error: test id " test-id))
